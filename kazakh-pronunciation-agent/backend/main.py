@@ -1,19 +1,6 @@
-<<<<<<< HEAD
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
-from typing import Optional
-import json
-import difflib
-import re
-import io
-from gtts import gTTS
-=======
-from fastapi import FastAPI, UploadFile, File, Body
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import time
-import httpx
->>>>>>> e142077 (Migration to Windows 11: added Docker, ChatBot component and fixed n8n integration)
 
 app = FastAPI(title="English Pronunciation Agent API")
 
@@ -429,7 +416,6 @@ def get_levels():
         ]
     }
 
-<<<<<<< HEAD
 
 @app.post("/api/analyze")
 async def analyze_pronunciation(
@@ -524,8 +510,8 @@ def text_to_speech(text: str, slow: bool = False):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-=======
-N8N_WEBHOOK_URL = "https://n8n.kstu.kz/webhook-test/english-ai-agent"
+
+N8N_WEBHOOK_URL = "https://n8n.kstu.kz/webhook/english-ai-agent"
 
 @app.post("/chat")
 async def chat_with_ai(message: str = Body(..., embed=True)):
@@ -544,7 +530,6 @@ async def chat_with_ai(message: str = Body(..., embed=True)):
         
         # 3. Отдаем фронтенду
         return {"reply": text}
->>>>>>> e142077 (Migration to Windows 11: added Docker, ChatBot component and fixed n8n integration)
 
 if __name__ == "__main__":
     import uvicorn
