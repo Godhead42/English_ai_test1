@@ -442,8 +442,14 @@ export default function App() {
   // Load levels on mount
   useEffect(() => {
     fetch(`${API_BASE}/api/levels`)
-      .then(r => r.json())
-      .then(data => setLevels(data.levels))
+      .then(r => {
+        if (!r.ok) throw new Error("Network response was not ok");
+        return r.json();
+      })
+      .then(data => {
+        if (!data || !data.levels) throw new Error("Invalid format");
+        setLevels(data.levels);
+      })
       .catch(() => {
         // Fallback levels if backend is down
         setLevels([
@@ -524,8 +530,12 @@ export default function App() {
   // Load phrases when level changes
   useEffect(() => {
     fetch(`${API_BASE}/api/phrases?level=${selectedLevel}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error("Network response was not ok");
+        return r.json();
+      })
       .then(data => {
+        if (!data || !data.phrases) throw new Error("Invalid format");
         setPhrases(data.phrases);
         setCurrentPhraseIndex(0);
         setResult(null);
@@ -705,7 +715,7 @@ export default function App() {
     localStorage.removeItem("pronunciation_history");
   };
 
-  const currentPhrase = phrases[currentPhraseIndex] || "";
+  const currentPhrase = phrases?.[currentPhraseIndex] || "";
 
   // ────────────────────────────────────────────────
   //  Render
@@ -764,7 +774,7 @@ export default function App() {
               </button>
               <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
                 <BookOpen className="w-3.5 h-3.5" />
-                Phrase {currentPhraseIndex + 1}/{phrases.length}
+                Phrase {currentPhraseIndex + 1}/{(phrases?.length || 1)}
               </h2>
               <button
                 onClick={nextPhrase}
