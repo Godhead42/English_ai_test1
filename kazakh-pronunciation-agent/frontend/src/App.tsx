@@ -61,8 +61,7 @@ interface HistoryItem {
 // ────────────────────────────────────────────────
 //  API Base URL
 // ────────────────────────────────────────────────
-const API_BASE = 'http://localhost:8000';
-
+const API_BASE = "http://audlev.kstu.kz";
 // ────────────────────────────────────────────────
 //  Helpers
 // ────────────────────────────────────────────────
@@ -1026,7 +1025,7 @@ export default function App() {
         </div>
 
       </main>
-      
+
       <ChatBot />
     </div>
   );

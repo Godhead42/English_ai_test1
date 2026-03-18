@@ -1,6 +1,13 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Body, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 import time
+import httpx
+import json
+import difflib
+import re
+import io
+from gtts import gTTS
 
 app = FastAPI(title="English Pronunciation Agent API")
 
