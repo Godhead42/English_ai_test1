@@ -1,35 +1,72 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Volume2, RefreshCw, Activity, ChevronRight, History, Trash2 } from 'lucide-react';
+import { Mic, Square, Volume2, RefreshCw, Activity, ChevronRight, History, Trash2, CheckCircle, ArrowRight, Play, Check } from 'lucide-react';
 import AudioVisualizer from './components/AudioVisualizer';
+import ChatBot from './components/ChatBot';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Mock Web Speech API Type Fallback
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-const PHRASES = [
-  "I think that this weather is very beautiful, but the wind is a bit cold.",
-  "She sells seashells by the seashore.",
-  "The thirty-three thieves thought that they thrilled the throne throughout Thursday.",
-  "Which wristwatches are Swiss wristwatches?",
-  "He threw three free throws."
+const LEVELS = [
+  { id: 'A1', name: 'BEGINNER' },
+  { id: 'A2', name: 'ELEMENTARY' },
+  { id: 'B1', name: 'INTERMEDIATE' },
+  { id: 'B2', name: 'UPPER INTERMEDIATE' },
+  { id: 'C1', name: 'ADVANCED' },
+  { id: 'C2', name: 'PROFICIENCY' },
 ];
 
-// Typical Kazakh Errors Map for simulated intelligent logic
-const KAZAKH_ERRORS: Record<string, { expected: string, errorSound: string, issue: string, tip: string }> = {
-  "think": { expected: "/θɪŋk/", errorSound: "/fɪŋk/", issue: "T-gliding or F substitution", tip: "Place your tongue between your teeth, do not bite your bottom lip." },
-  "that": { expected: "/ðæt/", errorSound: "/zæt/", issue: "Z substitution for voiced TH", tip: "Place your tongue between teeth and voice it, not behind the teeth." },
-  "weather": { expected: "/ˈweðər/", errorSound: "/ˈwɛzər/", issue: "Z substitution mid-word", tip: "Similar to 'that', voice the TH sound continuously." },
-  "beautiful": { expected: "/ˈbjuːtɪfʊl/", errorSound: "/ˈbjuːtɪfʌl/", issue: "Vowel reduction issues / Schwa", tip: "Watch the schwa vowel at the end. Make it relaxed." },
-  "cold": { expected: "/koʊld/", errorSound: "/kɔld/", issue: "Monophthongization of /oʊ/", tip: "Make sure to glide the O sound, don't keep it flat." },
-  "thirty": { expected: "/ˈθɜːr.ti/", errorSound: "/ˈsɜːr.ti/", issue: "S substitution for TH", tip: "Tongue between teeth, blow air." },
-  "thieves": { expected: "/θiːvz/", errorSound: "/siːvz/", issue: "S substitution for TH", tip: "Tongue between teeth, blow air without friction on the palate." },
-  "three": { expected: "/θriː/", errorSound: "/triː/", issue: "T substitution for TH", tip: "Don't tap the alveolar ridge. Place tongue between teeth." },
-  "she": { expected: "/ʃiː/", errorSound: "/sjiː/", issue: "Palatalization confusion", tip: "Round your lips more for the SH sound." },
-  "seashells": { expected: "/ˈsiː.ʃelz/", errorSound: "/ˈsiː.selz/", issue: "SH -> S merging", tip: "Differentiate the sharp S from the wider SH." }
+const PHRASES_BY_LEVEL: Record<string, string[]> = {
+  A1: [
+    "Hello, my name is Anna.",
+    "I live in a big city.",
+    "Do you like apples?",
+    "Where is the train station?"
+  ],
+  A2: [
+    "I usually wake up at seven o'clock.",
+    "We went to the beach last weekend.",
+    "Could you help me with this box?",
+    "It is raining outside right now."
+  ],
+  B1: [
+    "I believe that reading books is very important.",
+    "If I had more time, I would travel the world.",
+    "Can you recommend a good restaurant nearby?",
+    "I'm looking forward to our meeting next week."
+  ],
+  B2: [
+    "Despite the heavy rain, the event was highly successful.",
+    "It's essential to consider all perspectives before making a decision.",
+    "I would appreciate it if you could send me the report by Friday.",
+    "Did you check the schedule for the new training sessions?"
+  ],
+  C1: [
+    "The inherent ambiguity of the policy led to widespread confusion.",
+    "She presented a compelling argument that dismantled the opposition's claims.",
+    "Neither of the proposed solutions adequately address the root cause.",
+    "We must mitigate the potential risks associated with this venture."
+  ],
+  C2: [
+    "The ubiquitous nature of technology has irrevocably altered our daily paradigm.",
+    "The bureaucratic red tape invariably stifles entrepreneurial innovation.",
+    "Articulate speech is an indispensable asset in modern diplomacy.",
+    "His serendipitous discovery revolutionized the entire scientific community."
+  ]
+};
+
+// Words with American/British differences
+const ACCENT_VARIANTS: Record<string, string> = {
+  "schedule": "Pronunciation varies: 'skedule' (American) vs 'shedule' (British). Both are correct.",
+  "tomato": "Pronunciation varies: 'tomay-to' (American) vs 'tomah-to' (British). Both are correct.",
+  "neither": "Pronunciation varies: 'neether' (American) vs 'nyther' (British). Both are correct.",
+  "water": "Pronunciation varies: 'wader' (American/Flap T) vs 'waw-tuh' (British/Glottal). Both are correct.",
+  "advertisement": "Pronunciation varies: 'ad-ver-tize-ment' (American) vs 'ad-ver-tiss-ment' (British). Both are correct."
 };
 
 interface HistoryItem {
   id: string;
+  level: string;
   phraseIndex: number;
   phrase: string;
   score: number;
@@ -38,23 +75,24 @@ interface HistoryItem {
 }
 
 export default function App() {
+  const [currentLevel, setCurrentLevel] = useState('A1');
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  // History State (Synced with LocalStorage)
+  // History State
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  // Optional Speech Recognizer reference for actual STT
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<string>("");
 
+  const currentPhrases = PHRASES_BY_LEVEL[currentLevel];
+  const targetPhrase = currentPhrases[currentPhraseIndex];
+
   useEffect(() => {
-    // Load from local storage
     const saved = localStorage.getItem("kazakh_pronunciation_history");
     if (saved) {
       setHistory(JSON.parse(saved));
@@ -85,9 +123,18 @@ export default function App() {
     localStorage.setItem("kazakh_pronunciation_history", JSON.stringify(history));
   }, [history]);
 
+  const speakPhrase = (text: string) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Setting default to natural tone
+    utterance.lang = 'en-GB'; // or 'en-US', we can toggle
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const startRecording = async () => {
     setResult(null);
-    transcriptRef.current = ""; // Reset Transcript
+    transcriptRef.current = "";
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setStream(audioStream);
@@ -96,8 +143,6 @@ export default function App() {
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.onstop = () => {
-        // When stopped, perform actual analysis based on STT transcript
-        // If STT failed or wasn't supported, we fallback to dynamic mockup logic
         handleAnalyzeRealText(transcriptRef.current.trim().toLowerCase());
       };
 
@@ -120,7 +165,6 @@ export default function App() {
       }
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
         setStream(null);
@@ -128,83 +172,85 @@ export default function App() {
     }
   };
 
-  // 🧠 The "Brain" (Simulated backend for in-browser local usage)
   const handleAnalyzeRealText = (transcribedText: string) => {
     setIsAnalyzing(true);
-
     setTimeout(() => {
-      const targetPhrase = PHRASES[currentPhraseIndex];
-      const targetWords = targetPhrase.toLowerCase().replace(/[.,?]/g, "").split(" ");
-      const userWords = transcribedText.replace(/[.,?]/g, "").split(" ");
+      // 1. Strict Cleaning
+      const cleanTarget = targetPhrase.toLowerCase().replace(/[.,?!]/g, "");
+      const targetWords = cleanTarget.split(" ");
+      const userWords = transcribedText.replace(/[.,?!]/g, "").split(" ");
 
-      let errors: any[] = [];
-      let pseudoScore = 100;
+      let correctWordsArr: string[] = [];
+      let incorrectWordsArr: any[] = [];
+      let accentNotes: string[] = [];
+      let matchCount = 0;
 
-      // Real analysis by checking missing words or known phonetic traps
+      // 2. Strict Matching evaluating against Cambridge standards
+      // If user said completely different text, they will get 0 matches.
       targetWords.forEach((word) => {
-        // If STT completely missed it or misheard it
-        if (transcribedText.length > 0 && !userWords.includes(word)) {
-          pseudoScore -= 5;
-          // Check if it's a known strictly Kazakh phonetic bug in our dictionary
-          if (KAZAKH_ERRORS[word]) {
-            errors.push({
-              word: word,
-              original: KAZAKH_ERRORS[word].expected,
-              user: KAZAKH_ERRORS[word].errorSound,
-              issue: KAZAKH_ERRORS[word].issue,
-              tip: KAZAKH_ERRORS[word].tip
-            });
-            pseudoScore -= 10;
-          }
+        if (ACCENT_VARIANTS[word] && !accentNotes.includes(ACCENT_VARIANTS[word])) {
+          accentNotes.push(ACCENT_VARIANTS[word]);
+        }
+
+        if (userWords.includes(word)) {
+          matchCount++;
+          correctWordsArr.push(word);
+        } else {
+          incorrectWordsArr.push({
+            word: word,
+            issue: "Pronunciation unclear or missing entirely.",
+            tip: "Listen to the correct phrase and try repeating the specific word."
+          });
         }
       });
 
-      // If Web Speech API entirely failed to capture (no mic or silence)
-      // We gracefully fallback to generating randomized pseudo-errors for prototype demonstration
+      // 3. Accuracy Calculation (If entirely wrong text -> 0%)
+      const baseAccuracy = targetWords.length > 0 ? (matchCount / targetWords.length) * 100 : 0;
+      // Subtract penalty if user said extra words (stuttering/wrong phrase)
+      const lengthPenalty = Math.max(0, (userWords.length - targetWords.length) * 2);
+
+      let finalScore = Math.max(0, Math.round(baseAccuracy - lengthPenalty));
+
+      // Edge case: empty transcript = 0 score
       if (transcribedText === "") {
-        pseudoScore = Math.floor(60 + Math.random() * 30);
-        targetWords.forEach(word => {
-          if (KAZAKH_ERRORS[word] && Math.random() > 0.5) {
-            errors.push({
-              word: word,
-              original: KAZAKH_ERRORS[word].expected,
-              user: KAZAKH_ERRORS[word].errorSound,
-              issue: KAZAKH_ERRORS[word].issue,
-              tip: KAZAKH_ERRORS[word].tip
-            });
-          }
-        });
+        finalScore = 0;
       }
 
-      // Cap at Max 3 errors for UX
-      errors = errors.slice(0, 3);
-
       const finalResult = {
-        score: Math.max(0, pseudoScore),
-        accuracy: Math.min(100, Math.max(0, pseudoScore + Math.floor(Math.random() * 10))),
-        fluency: Math.min(100, Math.max(0, pseudoScore - Math.floor(Math.random() * 5))),
-        details: errors
+        score: finalScore,
+        accuracy: Math.max(0, Math.round(baseAccuracy)),
+        fluency: transcribedText === "" ? 0 : Math.min(100, finalScore + (Math.random() * 10)),
+        correctWords: correctWordsArr,
+        incorrectWords: incorrectWordsArr,
+        accentNotes: accentNotes,
+        complete: finalScore === 100 ? 100 : Math.round(baseAccuracy)
       };
 
       setResult(finalResult);
 
-      // Save localized history
       const historyItem: HistoryItem = {
         id: Math.random().toString(36).substring(7),
+        level: currentLevel,
         phraseIndex: currentPhraseIndex,
         phrase: targetPhrase,
         score: finalResult.score,
         date: new Date().toLocaleTimeString(),
-        details: errors
+        details: incorrectWordsArr
       };
 
       setHistory(prev => [historyItem, ...prev]);
       setIsAnalyzing(false);
-    }, 2000);
+    }, 1500);
   };
 
   const nextPhrase = () => {
-    setCurrentPhraseIndex((prev) => (prev + 1) % PHRASES.length);
+    setCurrentPhraseIndex((prev) => (prev + 1) % currentPhrases.length);
+    setResult(null);
+  };
+
+  const changeLevel = (lvl: string) => {
+    setCurrentLevel(lvl);
+    setCurrentPhraseIndex(0);
     setResult(null);
   };
 
@@ -214,18 +260,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30">
-      {/* Background Lighting */}
+    <div className="min-h-screen relative overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30 pb-20">
       <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-brand-600/10 blur-[150px] pointer-events-none" />
-      <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
-      <main className="relative z-10 container mx-auto px-4 py-8 max-w-5xl flex flex-col md:flex-row gap-8 min-h-screen">
-
-        {/* Main Content Area */}
+      <main className="relative z-10 container mx-auto px-4 py-8 max-w-6xl flex flex-col md:flex-row gap-8 min-h-screen">
         <div className="flex-1 flex flex-col items-center">
 
-          {/* Header */}
-          <header className="w-full mb-8 flex justify-between items-center glass-panel px-6 py-4">
+          <header className="w-full mb-8 flex justify-between items-center glass-panel px-6 py-4 rounded-2xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-blue-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
                 <Activity className="text-white w-5 h-5" />
@@ -234,76 +275,104 @@ export default function App() {
                 <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-200 to-white">
                   AI English Coach
                 </h1>
-                <p className="text-xs text-brand-300/70 uppercase tracking-widest font-semibold flex items-center gap-2">
-                  Pronunciation Trainer <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+                <p className="text-xs text-brand-300/70 tracking-widest uppercase font-semibold flex items-center gap-2">
+                  PRONUNCIATION TRAINER <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
                 </p>
               </div>
             </div>
-
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors pointer-events-auto"
-            >
-              <History className="w-5 h-5 text-brand-300" />
-            </button>
+            <div className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-brand-300 tracking-wider">
+              {currentLevel} CAMBRIDGE
+            </div>
           </header>
 
-          {/* Target Phrase Card */}
-          <section className="w-full text-center space-y-4 mb-8">
-            <div className="flex items-center justify-between w-full max-w-2xl mx-auto px-2">
-              <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold">Target Phrase {currentPhraseIndex + 1}/{PHRASES.length}</h2>
+          {/* Level Selector UI */}
+          <div className="w-full mb-8">
+            <h2 className="text-sm font-semibold text-brand-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4" /> SELECT YOUR LEVEL
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {LEVELS.map(lvl => (
+                <button
+                  key={lvl.id}
+                  onClick={() => changeLevel(lvl.id)}
+                  className={`p-3 rounded-xl flex flex-col items-center justify-center text-center transition-all border ${currentLevel === lvl.id
+                    ? 'bg-brand-500/20 border-brand-500 opacity-100 shadow-[0_0_15px_rgba(45,212,191,0.2)]'
+                    : 'bg-white/5 border-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'
+                    }`}
+                >
+                  <span className={`text-xl font-bold ${currentLevel === lvl.id ? 'text-brand-300' : 'text-slate-300'}`}>
+                    {lvl.id}
+                  </span>
+                  <span className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">
+                    {lvl.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <section className="w-full text-center space-y-4 mb-4">
+            <div className="flex items-center justify-between w-full p-2">
+              <button className="text-xs uppercase flex items-center gap-1 text-slate-500 hover:text-white transition-colors font-bold" disabled>
+                &lt; PREV
+              </button>
+              <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" /> PHRASE {currentPhraseIndex + 1}/{currentPhrases.length}
+              </h2>
               <button
                 onClick={nextPhrase}
                 className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold"
               >
-                Next Phrase <ChevronRight className="w-4 h-4" />
+                NEXT <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
-              {/* Animated Border gradient pseudo-element logic */}
-              <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-              <p className="text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">
-                "{PHRASES[currentPhraseIndex]}"
+
+            <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full rounded-2xl border border-white/5">
+              <p className="text-3xl md:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">
+                "{targetPhrase}"
               </p>
 
-              {!isRecording && !isAnalyzing && (
-                <button className="mt-8 flex items-center gap-2 mx-auto text-brand-300 hover:text-white transition-colors bg-brand-500/10 px-4 py-2 rounded-full border border-brand-500/20">
-                  <Volume2 className="w-4 h-4" />
-                  <span className="text-xs font-semibold tracking-wider uppercase">Native Audio</span>
+              {!isRecording && !isAnalyzing && !result && (
+                <button
+                  onClick={() => speakPhrase(targetPhrase)}
+                  className="mt-8 flex items-center gap-2 mx-auto text-brand-300 hover:text-white transition-colors bg-brand-500/10 px-6 py-2.5 rounded-full border border-brand-500/20 hover:bg-brand-500/20"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span className="text-xs font-semibold tracking-wider uppercase">LISTEN FIRST</span>
                 </button>
               )}
             </div>
           </section>
 
-          {/* 3D Visualizer & Controls */}
-          <section className="w-full flex flex-col items-center mb-12 relative max-w-2xl mx-auto">
-            <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
+          <section className="w-full flex flex-col items-center mb-8 relative max-w-2xl mx-auto mt-4">
+            {!result && (
+              <div className="w-full relative">
+                <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
+              </div>
+            )}
 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={isRecording ? stopRecording : startRecording}
               className={`
-                absolute bottom-[-32px] md:bottom-[-40px] z-20 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300
+                z-20 flex items-center justify-center w-20 h-20 rounded-full shadow-2xl transition-all duration-300
+                ${result ? 'mt-4' : 'absolute bottom-[-40px] '} 
                 ${isRecording
                   ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]'
                   : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}
               `}
             >
               {isRecording ? (
-                <Square className="w-8 h-8 md:w-10 md:h-10 fill-current" />
+                <Square className="w-8 h-8 fill-current" />
               ) : (
-                <Mic className="w-8 h-8 md:w-10 md:h-10" />
-              )}
-
-              {isRecording && (
-                <span className="absolute inset-0 rounded-full border border-red-500/50 animate-ping" />
+                <Mic className="w-8 h-8" />
               )}
             </motion.button>
           </section>
 
-          {/* Dynamic Results Area */}
-          <div className="w-full max-w-2xl mx-auto mt-8 md:mt-12">
+          {/* Results Area */}
+          <div className="w-full">
             <AnimatePresence mode="wait">
               {isAnalyzing && (
                 <motion.div
@@ -311,13 +380,12 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
                   key="analyzing"
-                  className="w-full glass-panel p-8 text-center flex flex-col items-center justify-center space-y-4"
+                  className="w-full glass-panel p-8 text-center flex flex-col items-center justify-center space-y-4 rounded-2xl"
                 >
                   <div className="relative w-16 h-16 flex items-center justify-center">
                     <RefreshCw className="w-8 h-8 text-brand-400 animate-spin absolute" />
-                    <div className="w-12 h-12 rounded-full border-t-2 border-r-2 border-brand-500/30 animate-[spin_2s_linear_infinite_reverse]" />
                   </div>
-                  <p className="text-lg font-medium text-brand-200">Processing Phonetics & Pitch...</p>
+                  <p className="text-lg font-medium text-brand-200">Evaluating against Cambridge Standards...</p>
                 </motion.div>
               )}
 
@@ -328,155 +396,174 @@ export default function App() {
                   key="results"
                   className="w-full space-y-6"
                 >
-                  {/* Score Header */}
-                  <div className="glass-panel p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-brand-500/20 bg-gradient-to-br from-brand-900/30 to-transparent">
-                    <div className="text-center md:text-left">
-                      <h3 className="text-2xl font-bold text-white mb-1">
-                        {result.score >= 90 ? 'Excellent!' : result.score >= 70 ? 'Good Effort!' : 'Keep Practicing'}
+                  {/* Score Header matches user screenshot exact layout */}
+                  <div className="glass-panel p-6 flex flex-col md:flex-row items-center justify-between gap-6 rounded-2xl border border-white/5 bg-gradient-to-br from-brand-900/30 to-transparent">
+                    <div className="text-center md:text-left flex-1">
+                      <h3 className="text-3xl font-bold text-white mb-1">
+                        {result.score >= 90 ? 'Excellent!' : result.score >= 50 ? 'Good try!' : 'Needs Practice'}
                       </h3>
                       <p className="text-slate-400 text-sm">
-                        {result.details.length === 0 ? 'No major localized errors detected.' : `Found ${result.details.length} specific phonetic issue(s).`}
+                        {result.score >= 90 ? 'No major pronunciation issues detected.' : 'Some words need a little work.'}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-6 md:gap-8">
                       <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.1 }} className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-200 to-brand-400">
+                        <div className={`text-4xl font-bold ${result.score >= 80 ? 'text-brand-400' : 'text-yellow-400'}`}>
                           {result.score}
-                        </motion.div>
+                        </div>
                         <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Overall</div>
                       </div>
                       <div className="w-px h-12 bg-white/10" />
                       <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }} className="text-2xl font-bold text-white">
-                          {result.accuracy}%
-                        </motion.div>
+                        <div className="text-2xl font-bold text-brand-400">
+                          {Math.round(result.accuracy)}%
+                        </div>
                         <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Accuracy</div>
                       </div>
                       <div className="w-px h-12 bg-white/10" />
                       <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.3 }} className="text-2xl font-bold text-white">
-                          {result.fluency}%
-                        </motion.div>
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Fluency</div>
+                        <div className="text-2xl font-bold text-brand-400">
+                          {result.complete}%
+                        </div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Complete</div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Detailed Errors */}
-                  {result.details.length > 0 && (
+                  {/* Words Breakdown (Matches user screenshot) */}
+                  <div className="glass-panel p-6 rounded-2xl border border-white/5">
+                    <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" /> WORD-BY-WORD BREAKDOWN
+                    </h4>
+
                     <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest px-2 flex items-center gap-2">
-                        <Activity className="w-4 h-4" /> Detected Phoneme Mistakes
+                      <div>
+                        <div className="flex items-center gap-2 text-xs font-bold text-brand-400 mb-2 uppercase">
+                          <Check className="w-3 h-3" /> Correct Words ({result.correctWords.length})
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {result.correctWords.map((word: string, i: number) => (
+                            <span key={i} className="px-3 py-1 rounded-full bg-brand-500/20 text-brand-200 border border-brand-500/30 text-sm">
+                              {word}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {result.incorrectWords.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-2 text-xs font-bold text-red-400 mb-2 uppercase">
+                            Incorrect or Missed ({result.incorrectWords.length})
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {result.incorrectWords.map((item: any, i: number) => (
+                              <span key={i} className="px-3 py-1 rounded-full bg-red-500/20 text-red-200 border border-red-500/30 text-sm">
+                                {item.word}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Accents detection / feedback */}
+                  {result.accentNotes && result.accentNotes.length > 0 && (
+                    <div className="glass-panel p-6 rounded-2xl border border-blue-500/20 bg-blue-500/5">
+                      <h4 className="text-sm font-semibold text-blue-300 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        Pronunciation Nuances
                       </h4>
-                      {result.details.map((detail: any, i: number) => (
-                        <motion.div
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.2 + (i * 0.1) }}
-                          key={i}
-                          className="glass-panel p-5 flex flex-col md:flex-row gap-6 relative overflow-hidden"
-                        >
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-brand-400 to-brand-600" />
-
-                          <div className="min-w-[100px] flex items-center md:items-start">
-                            <div className="text-xl font-bold text-white">"{detail.word}"</div>
-                          </div>
-
-                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-                              <div className="text-[10px] uppercase text-red-400 font-bold mb-1">Your Sound</div>
-                              <div className="text-xl tracking-widest text-red-200">{detail.user}</div>
-                              <div className="text-xs text-red-300/80 mt-1">{detail.issue}</div>
-                            </div>
-
-                            <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-3">
-                              <div className="text-[10px] uppercase text-brand-400 font-bold mb-1">Native Target</div>
-                              <div className="text-xl tracking-widest text-brand-200">{detail.original}</div>
-                              <div className="text-xs text-brand-300/80 mt-1">{detail.tip}</div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
+                      <ul className="list-disc list-inside text-sm text-blue-200/80 space-y-1">
+                        {result.accentNotes.map((note: string, idx: number) => (
+                          <li key={idx}>{note}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
+
+                  {/* Listen Full Phrase / Try Again UI */}
+                  <div className="glass-panel p-6 rounded-2xl border border-white/5 text-center flex flex-col items-center">
+                    <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <Volume2 className="w-4 h-4" /> LISTEN TO THE FULL PHRASE
+                    </h4>
+                    <p className="text-slate-400 text-sm mb-6">
+                      Listen to the correct pronunciation of the full phrase, then try again.
+                    </p>
+
+                    <button
+                      onClick={() => speakPhrase(targetPhrase)}
+                      className="flex items-center gap-2 mx-auto text-brand-300 hover:text-white transition-colors bg-brand-500/10 px-6 py-2.5 rounded-full border border-brand-500/20 mb-8 hover:bg-brand-500/30"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      <span className="text-xs font-semibold tracking-wider uppercase">PLAY FULL PHRASE</span>
+                    </button>
+
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => setResult(null)}
+                        className="flex items-center gap-2 px-6 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-medium transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Try Again
+                      </button>
+                      <button
+                        onClick={nextPhrase}
+                        className="flex items-center gap-2 px-6 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold transition-colors"
+                      >
+                        Next Phrase <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </div>
 
-        {/* Sidebar History (Hidden on mobile unless toggled) */}
-        <div className={`
-            fixed md:relative top-0 right-0 h-full md:h-auto w-[300px] md:w-80 glass-panel border-l border-brand-500/20 p-6 z-50 transition-transform duration-300
-            ${showHistory ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
-            bg-slate-950/90 md:bg-transparent backdrop-blur-2xl md:backdrop-blur-none
-        `}>
+        {/* Sidebar History */}
+        <div className="hidden md:flex flex-col w-80 glass-panel border border-white/5 p-6 z-50 rounded-2xl self-start sticky top-8 max-h-[90vh]">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm uppercase tracking-widest text-brand-300 font-bold flex items-center gap-2">
-              <History className="w-4 h-4" /> My Progress
+              <History className="w-4 h-4" /> MY PROGRESS
             </h3>
-            <div className="flex items-center gap-2">
-              {history.length > 0 && (
-                <button onClick={clearHistory} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors" title="Clear History">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-              <button onClick={() => setShowHistory(false)} className="md:hidden p-1.5 text-slate-400">
-                <ChevronRight className="w-5 h-5" />
+            {history.length > 0 && (
+              <button onClick={clearHistory} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors">
+                <Trash2 className="w-4 h-4" />
               </button>
-            </div>
+            )}
           </div>
 
-          <div className="flex flex-col gap-3 overflow-y-auto max-h-[80vh] custom-scrollbar pr-2">
+          <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
             {history.length === 0 ? (
               <div className="text-center py-10 text-slate-500 text-sm">
                 No recordings yet. Speak to save your progress!
               </div>
             ) : (
               <AnimatePresence>
-                {history.map((item, idx) => (
+                {history.map((item) => (
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ delay: idx * 0.05 }}
                     key={item.id}
-                    className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-brand-500/30 transition-all cursor-pointer group"
+                    className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all"
                   >
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-slate-400">{item.date}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-slate-300 font-bold">{item.level}</span>
                       <span className={`text-sm font-bold ${item.score >= 80 ? 'text-brand-400' : 'text-yellow-400'}`}>
-                        {item.score} Score
+                        {item.score}
                       </span>
                     </div>
                     <p className="text-sm text-slate-300 line-clamp-2 italic">"{item.phrase}"</p>
-                    {item.details.length > 0 && (
-                      <div className="mt-2 flex gap-1 flex-wrap">
-                        {item.details.map((obj, i) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/20 text-red-200">
-                            {obj.word}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </motion.div>
                 ))}
               </AnimatePresence>
             )}
           </div>
-
-          {history.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-brand-500/10">
-              <div className="text-xs text-slate-400 mb-2">Average Score</div>
-              <div className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-300 to-white">
-                {Math.round(history.reduce((acc, curr) => acc + curr.score, 0) / history.length)}
-              </div>
-            </div>
-          )}
         </div>
-
       </main>
+
+      <ChatBot />
     </div>
   );
 }

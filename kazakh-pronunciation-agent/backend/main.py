@@ -1,6 +1,7 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 import time
+import httpx
 
 app = FastAPI(title="Kazakh Pronunciation Agent API")
 
@@ -61,6 +62,27 @@ async def analyze_audio(file: UploadFile = File(...)):
         ]
     }
 
+N8N_WEBHOOK_URL = "https://n8n.kstu.kz/webhook-test/english-ai-agent"
+
+@app.post("/chat")
+async def chat_with_ai(message: str = Body(..., embed=True)):
+    async with httpx.AsyncClient() as client:
+        print("Sending to n8n:", message)
+        # 1. Пересылаем сообщение студента в n8n
+        response = await client.post(
+            N8N_WEBHOOK_URL, 
+            json={"content": message},
+            timeout=60.0 # Даем ИИ время подумать
+        )
+        
+        text = response.text
+        
+        print("Raw response:", text)
+        
+        # 3. Отдаем фронтенду
+        return {"reply": text}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

@@ -1,0 +1,35 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.so
+venv/
+env/
+
+# Node.js
+node_modules/
+dist/
+build/
+.npm/
+
+# CRITICAL SECURITY (Секретные ключи)
+.env
+.env.*
+*.pem
+credentials.json
+secrets.json
+config.json
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Windows / OS системные файлы
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# IDE и редакторы
+.vscode/
+.idea/
+*.swp
