@@ -11,7 +11,7 @@ interface Message {
 export default function ChatBot() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', sender: 'bot', text: 'Hello! I am your AI English Coach. Ask me anything!' }
+        { id: '1', sender: 'bot', text: 'Hi! I\'m your English Coach. Ask me anything about pronunciation, grammar, or vocabulary!' }
     ]);
     const [inputValue, setInputValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +41,7 @@ export default function ChatBot() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://audlev.kstu.kz:8000/chat', {
+            const response = await fetch('http://audlev.kstu.kz/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: userMessage.text })
@@ -90,7 +90,7 @@ export default function ChatBot() {
                                 <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center">
                                     <Bot className="w-5 h-5 text-brand-400" />
                                 </div>
-                                <span className="font-bold text-slate-100">Aldar Kose AI</span>
+                                <span className="font-bold text-slate-100">English Coach AI</span>
                             </div>
                             <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white transition-colors">
                                 <X className="w-5 h-5" />
@@ -113,7 +113,7 @@ export default function ChatBot() {
                                 <div className="flex w-full justify-start">
                                     <div className="p-3 rounded-2xl bg-white/10 text-slate-200 border border-white/5 rounded-bl-sm flex items-center gap-2">
                                         <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-                                        <span className="text-xs text-brand-200">Aldar is thinking...</span>
+                                        <span className="text-xs text-brand-200">Coach is thinking...</span>
                                     </div>
                                 </div>
                             )}
@@ -128,7 +128,7 @@ export default function ChatBot() {
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Ask Aldar a question..."
+                                    placeholder="Ask your coach a question..."
                                     className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-500/50 transition-colors placeholder-slate-500"
                                 />
                                 <button
