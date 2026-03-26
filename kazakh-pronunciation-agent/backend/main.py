@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Body, Form
+from fastapi import FastAPI, UploadFile, File, Body, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import time
@@ -14,12 +14,7 @@ app = FastAPI(title="English Pronunciation Agent API")
 # Configure CORS for local development with Vite
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://audlev.kstu.kz",
-        "https://audlev.kstu.kz",
-    ],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://audlev.kstu.kz", "https://audlev.kstu.kz"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -526,22 +521,30 @@ def text_to_speech(text: str, slow: bool = False):
 N8N_WEBHOOK_URL = "https://n8n.kstu.kz/webhook/english-ai-agent"
 
 @app.post("/chat")
-async def chat_with_ai(message: str = Body(..., embed=True)):
-    async with httpx.AsyncClient() as client:
-        print("Sending to n8n:", message)
-        # 1. Пересылаем сообщение студента в n8n
-        response = await client.post(
-            N8N_WEBHOOK_URL, 
-            json={"content": message},
-            timeout=60.0 # Даем ИИ время подумать
-        )
-        
-        text = response.text
-        
-        print("Raw response:", text)
-        
-        # 3. Отдаем фронтенду
-        return {"reply": text}
+async def chat_with_ai(request: Request, message: str = Body(..., embed=True)):
+    # Используем IP клиента как уникальный session_id для Simple Memory
+    session_id = request.client.host if request.client else "anonymous"
+    try:
+        async with httpx.AsyncClient() as client:
+            print(f"Sending to n8n: {message} (session: {session_id})")
+            response = await client.post(
+                N8N_WEBHOOK_URL, 
+                json={"content": message, "session_id": session_id},
+                timeout=60.0
+            )
+            
+            print(f"n8n status: {response.status_code}")
+            print(f"n8n response: {response.text}")
+            
+            if response.status_code != 200:
+                return {"reply": f"⚠️ AI service error (status {response.status_code}). Make sure the n8n workflow is published."}
+            
+            return {"reply": response.text}
+    except httpx.TimeoutException:
+        return {"reply": "⚠️ The AI is taking too long to respond. Please try again."}
+    except Exception as e:
+        print(f"Chat error: {e}")
+        return {"reply": "⚠️ Could not connect to AI service. Please try again later."}
 
 if __name__ == "__main__":
     import uvicorn

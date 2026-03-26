@@ -41,7 +41,10 @@ export default function ChatBot() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://audlev.kstu.kz/chat', {
+            const apiHost = window.location.hostname === 'localhost' 
+                ? 'http://localhost:8000' 
+                : `http://${window.location.hostname}:8000`;
+            const response = await fetch(`${apiHost}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: userMessage.text })
