@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import AudioVisualizer from './components/AudioVisualizer';
 import ChatBot from './components/ChatBot';
+import LevelCheck from './components/LevelCheck';
+import AuthPage from './components/AuthPage';
+import ProgressPage from './components/ProgressPage';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ────────────────────────────────────────────────
@@ -62,6 +65,9 @@ interface HistoryItem {
 //  API Base URL
 // ────────────────────────────────────────────────
 const API_BASE = "http://audlev.kstu.kz";
+const API_HOST = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : API_BASE;
 // ────────────────────────────────────────────────
 //  Helpers
 // ────────────────────────────────────────────────
@@ -419,8 +425,17 @@ export default function App() {
   // ─── State ───────────────────────────────────
   const [levels, setLevels] = useState<CEFRLevel[]>([]);
   const [selectedLevel, setSelectedLevel] = useState('A1');
+  const [hasCompletedTest, setHasCompletedTest] = useState(() => localStorage.getItem('has_completed_test') === 'true');
   const [phrases, setPhrases] = useState<string[]>([]);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+
+  // Auth state
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
+  const [user, setUser] = useState<{ id: number; email: string; name: string; level: string } | null>(() => {
+    const saved = localStorage.getItem('auth_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [showProgress, setShowProgress] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -436,6 +451,31 @@ export default function App() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<string>("");
+
+  const handleAuth = (newToken: string, newUser: { id: number; email: string; name: string; level: string }) => {
+    setToken(newToken);
+    setUser(newUser);
+    localStorage.setItem('auth_token', newToken);
+    localStorage.setItem('auth_user', JSON.stringify(newUser));
+    if (newUser.level && newUser.level !== 'A1') {
+      setSelectedLevel(newUser.level);
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('has_completed_test');
+    setHasCompletedTest(false);
+  };
+
+  const handleTestComplete = (level: string) => {
+    setSelectedLevel(level);
+    setHasCompletedTest(true);
+    localStorage.setItem('has_completed_test', 'true');
+  };
 
   // ─── Effects ─────────────────────────────────
 
@@ -659,6 +699,26 @@ export default function App() {
         issueCount: data.phonetic_issues.length,
       };
       setHistory(prev => [historyItem, ...prev].slice(0, 50));
+
+      // Auto-save to DB if user is authenticated
+      if (token) {
+        fetch(`${API_HOST}/api/progress`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            phrase: targetText,
+            level: selectedLevel,
+            overall_score: data.scores.overall,
+            accuracy: data.scores.accuracy,
+            fluency: data.scores.fluency,
+            completeness: data.scores.completeness,
+            issue_count: data.phonetic_issues.length,
+          }),
+        }).catch(err => console.error('Failed to save progress:', err));
+      }
     } catch {
       // Offline fallback — basic comparison
       const targetNorm = targetText.toLowerCase().replace(/[^\w\s']/g, '');
@@ -720,6 +780,23 @@ export default function App() {
   // ────────────────────────────────────────────────
   //  Render
   // ────────────────────────────────────────────────
+
+  // Step 1: Auth gate
+  if (!token) {
+    return <AuthPage onAuth={handleAuth} />;
+  }
+
+  // Step 2: Level check
+  if (!hasCompletedTest) {
+    return <LevelCheck onComplete={handleTestComplete} />;
+  }
+
+  // Step 3: Progress page
+  if (showProgress) {
+    return <ProgressPage token={token} onBack={() => setShowProgress(false)} />;
+  }
+
+  // Step 4: Main app
   return (
     <div className="min-h-screen relative overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30">
       {/* Background Lighting */}
@@ -747,9 +824,26 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowProgress(true)}
+                className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all"
+              >
+                📊 Progress
+              </button>
               <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest">
                 Level {selectedLevel}
               </span>
+              {user && (
+                <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                  {user.name}
+                </span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all"
+              >
+                Logout
+              </button>
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"

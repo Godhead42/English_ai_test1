@@ -1,6 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, Body, Form, Request
+from fastapi import FastAPI, UploadFile, File, Body, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 import time
 import httpx
 import json
@@ -9,7 +13,41 @@ import re
 import io
 from gtts import gTTS
 
+from database import engine, get_db, Base
+from models import User, PronunciationResult
+from auth import (
+    hash_password, verify_password, create_token,
+    get_current_user, get_optional_user,
+)
+
 app = FastAPI(title="English Pronunciation Agent API")
+
+
+# ── Create tables on startup ─────────────────────
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created / verified")
+
+
+# ── Pydantic schemas ─────────────────────────────
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    name: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class SaveResultRequest(BaseModel):
+    phrase: str
+    level: str
+    overall_score: float
+    accuracy: float = 0
+    fluency: float = 0
+    completeness: float = 0
+    issue_count: int = 0
 
 # Configure CORS for local development with Vite
 app.add_middleware(
@@ -546,7 +584,127 @@ async def chat_with_ai(request: Request, message: str = Body(..., embed=True)):
         print(f"Chat error: {e}")
         return {"reply": "⚠️ Could not connect to AI service. Please try again later."}
 
+# ─────────────────────────────────────────────────────────────────
+# Auth Endpoints
+# ─────────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == req.email).first()
+    if existing:
+        return JSONResponse(status_code=400, content={"detail": "Email already registered"})
+    
+    user = User(
+        email=req.email,
+        name=req.name,
+        hashed_password=hash_password(req.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    token = create_token(user.id)
+    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level}}
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user or not verify_password(req.password, user.hashed_password):
+        return JSONResponse(status_code=401, content={"detail": "Invalid email or password"})
+    
+    token = create_token(user.id)
+    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level}}
+
+
+@app.get("/api/auth/me")
+def get_me(user: User = Depends(get_current_user)):
+    return {"id": user.id, "email": user.email, "name": user.name, "level": user.level}
+
+
+# ─────────────────────────────────────────────────────────────────
+# Progress Endpoints
+# ─────────────────────────────────────────────────────────────────
+
+@app.post("/api/progress")
+def save_progress(req: SaveResultRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    result = PronunciationResult(
+        user_id=user.id,
+        phrase=req.phrase,
+        level=req.level,
+        overall_score=req.overall_score,
+        accuracy=req.accuracy,
+        fluency=req.fluency,
+        completeness=req.completeness,
+        issue_count=req.issue_count,
+    )
+    db.add(result)
+    db.commit()
+    return {"status": "saved"}
+
+
+@app.get("/api/progress")
+def get_progress(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    results = (
+        db.query(PronunciationResult)
+        .filter(PronunciationResult.user_id == user.id)
+        .order_by(PronunciationResult.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return {
+        "results": [
+            {
+                "id": r.id,
+                "phrase": r.phrase,
+                "level": r.level,
+                "overall_score": r.overall_score,
+                "accuracy": r.accuracy,
+                "fluency": r.fluency,
+                "completeness": r.completeness,
+                "issue_count": r.issue_count,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in results
+        ]
+    }
+
+
+@app.get("/api/progress/stats")
+def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(PronunciationResult).filter(PronunciationResult.user_id == user.id)
+    
+    total = query.count()
+    if total == 0:
+        return {"total_sessions": 0, "avg_overall": 0, "avg_accuracy": 0, "avg_fluency": 0, "avg_completeness": 0, "best_score": 0, "improvement": 0}
+    
+    stats = db.query(
+        sa_func.avg(PronunciationResult.overall_score),
+        sa_func.avg(PronunciationResult.accuracy),
+        sa_func.avg(PronunciationResult.fluency),
+        sa_func.avg(PronunciationResult.completeness),
+        sa_func.max(PronunciationResult.overall_score),
+    ).filter(PronunciationResult.user_id == user.id).first()
+    
+    # Calculate improvement: difference between avg of last 5 and first 5 sessions
+    first_5 = query.order_by(PronunciationResult.created_at.asc()).limit(5).all()
+    last_5 = query.order_by(PronunciationResult.created_at.desc()).limit(5).all()
+    
+    avg_first = sum(r.overall_score for r in first_5) / len(first_5) if first_5 else 0
+    avg_last = sum(r.overall_score for r in last_5) / len(last_5) if last_5 else 0
+    improvement = round(avg_last - avg_first, 1)
+    
+    return {
+        "total_sessions": total,
+        "avg_overall": round(stats[0] or 0, 1),
+        "avg_accuracy": round(stats[1] or 0, 1),
+        "avg_fluency": round(stats[2] or 0, 1),
+        "avg_completeness": round(stats[3] or 0, 1),
+        "best_score": round(stats[4] or 0, 1),
+        "improvement": improvement,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
