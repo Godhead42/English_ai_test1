@@ -783,7 +783,7 @@ export default function App() {
 
   // Auth page (shown when user clicks Sign In / Sign Up)
   if (showAuthPage) {
-    return <AuthPage onAuth={handleAuth} />;
+    return <AuthPage onAuth={handleAuth} onBack={() => setShowAuthPage(false)} />;
   }
 
   // Step 1: Level check (available without auth)

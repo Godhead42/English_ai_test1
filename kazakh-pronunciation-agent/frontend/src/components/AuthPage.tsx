@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { GraduationCap, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import API_BASE_URL from '../apiConfig';
 
 interface AuthPageProps {
   onAuth: (token: string, user: { id: number; email: string; name: string; level: string }) => void;
+  onBack?: () => void;
 }
 
-export default function AuthPage({ onAuth }: AuthPageProps) {
+export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -157,6 +158,17 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
             )}
           </button>
         </form>
+
+        {/* Back to Main */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-sm font-medium hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Main
+          </button>
+        )}
       </motion.div>
     </div>
   );

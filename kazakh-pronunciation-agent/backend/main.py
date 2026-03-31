@@ -72,7 +72,7 @@ class SaveResultRequest(BaseModel):
 # Configure CORS for local development with Vite
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://audlev.kstu.kz", "https://audlev.kstu.kz"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
