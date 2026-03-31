@@ -11,6 +11,10 @@ import json
 import difflib
 import re
 import io
+import os
+import tempfile
+import speech_recognition as sr
+from pydub import AudioSegment
 from gtts import gTTS
 
 from database import engine, get_db, Base
@@ -486,18 +490,53 @@ def get_levels():
 async def analyze_pronunciation(
     target_text: str = Form(...),
     user_text: str = Form(""),
+    audio_file: UploadFile = File(None),
 ):
     """
     Analyze pronunciation by comparing target text with what the user actually said.
     
     - target_text: the phrase the user was supposed to read
-    - user_text: what the speech recognition captured from the user
+    - user_text: fallback what the speech recognition captured from the user on frontend
+    - audio_file: the actual recorded audio from the frontend
     
     Returns detailed word-by-word analysis, scores, and phonetic tips.
     """
+    recognized_text = user_text.strip()
+
+    # If audio is provided, try to recognize it on the backend
+    if audio_file:
+        try:
+            # Create a temporary file to save the uploaded audio
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_in:
+                content = await audio_file.read()
+                temp_in.write(content)
+                temp_in_path = temp_in.name
+            
+            # Use pydub to convert to wav
+            temp_out_path = temp_in_path + ".wav"
+            audio = AudioSegment.from_file(temp_in_path)
+            audio.export(temp_out_path, format="wav")
+            
+            # Use SpeechRecognition on the wav file
+            recognizer = sr.Recognizer()
+            with sr.AudioFile(temp_out_path) as source:
+                audio_data = recognizer.record(source)
+                recognized_text = recognizer.recognize_google(audio_data)
+            
+            # Cleanup temp files
+            os.remove(temp_in_path)
+            os.remove(temp_out_path)
+        except sr.UnknownValueError:
+            # Google Speech Recognition could not understand audio
+            pass
+        except sr.RequestError as e:
+            # Could not request results from Google Speech Recognition service
+            print(f"Could not request results from Google SR service; {e}")
+        except Exception as e:
+            print(f"Error processing audio on backend: {e}")
 
     # Handle empty user text
-    if not user_text.strip():
+    if not recognized_text:
         return {
             "scores": {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0},
             "word_analysis": {
@@ -514,7 +553,7 @@ async def analyze_pronunciation(
 
     # Normalize both texts
     target_normalized = normalize_text(target_text)
-    user_normalized = normalize_text(user_text)
+    user_normalized = normalize_text(recognized_text)
 
     target_words = target_normalized.split()
     user_words = user_normalized.split()
@@ -547,7 +586,7 @@ async def analyze_pronunciation(
         "word_analysis": analysis,
         "phonetic_issues": phonetic_issues,
         "target_text": target_text,
-        "user_text": user_text,
+        "user_text": recognized_text,
         "summary": summary,
     }
 

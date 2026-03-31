@@ -449,6 +449,7 @@ export default function App() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const transcriptRef = useRef<string>("");
 
   const handleAuth = (newToken: string, newUser: { id: number; email: string; name: string; level: string }) => {
@@ -607,19 +608,35 @@ export default function App() {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setStream(audioStream);
 
-      const mediaRecorder = new MediaRecorder(audioStream);
+      // Determine mimeType for maximum mobile compatibility
+      let mimeType = '';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      }
+
+      const mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
 
       mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
         const userText = transcriptRef.current.trim();
-        submitAnalysis(userText);
+        submitAnalysis(userText, audioBlob);
       };
 
       if (recognitionRef.current) {
         try { recognitionRef.current.start(); } catch { }
       }
 
-      mediaRecorder.start();
+      mediaRecorder.start(100);
       setIsRecording(true);
     } catch {
       alert("Microphone access denied or unavailable.");
@@ -645,13 +662,13 @@ export default function App() {
 
   // ─── Analysis ────────────────────────────────
 
-  const submitAnalysis = async (userText: string) => {
+  const submitAnalysis = async (userText: string, audioBlob?: Blob) => {
     setStep('analyzing');
 
     const targetText = phrases[currentPhraseIndex] || "";
 
-    // If no speech was detected, show useful feedback immediately
-    if (!userText.trim()) {
+    // If no speech was detected AND no audio blob was captured, show useful feedback immediately
+    if (!userText.trim() && !audioBlob) {
       const targetWords = targetText.toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/);
       setResult({
         scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0 },
@@ -674,6 +691,10 @@ export default function App() {
       const formData = new FormData();
       formData.append('target_text', targetText);
       formData.append('user_text', userText);
+
+      if (audioBlob) {
+        formData.append('audio_file', audioBlob, 'recording.webm');
+      }
 
       const response = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
@@ -911,7 +932,12 @@ export default function App() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={isRecording ? stopRecording : startRecording}
+              onMouseDown={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
+              onMouseUp={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
+              onMouseLeave={() => { if (isRecording) stopRecording(); }}
+              onTouchStart={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
+              onTouchEnd={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
+              onContextMenu={(e) => e.preventDefault()}
               disabled={step === 'analyzing'}
               className={`
                 absolute bottom-[-32px] md:bottom-[-40px] z-20 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30
@@ -930,6 +956,13 @@ export default function App() {
               )}
             </motion.button>
           </section>
+
+          {/* Mobile Microphone Notice */}
+          <div className="w-full text-center mt-10 mb-2">
+            <p className="text-[11px] text-slate-500/80 px-4 max-w-sm mx-auto uppercase tracking-wider">
+              Для мобильного использования разрешите доступ к микрофону в настройках браузера. Удерживайте кнопку для записи.
+            </p>
+          </div>
 
           {/* ──────── Dynamic Results Area ──────── */}
           <div className="w-full max-w-2xl mx-auto mt-8 md:mt-12">

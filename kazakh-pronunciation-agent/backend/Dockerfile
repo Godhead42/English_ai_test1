@@ -5,6 +5,10 @@ WORKDIR /app
 # зависимости
 COPY requirements.txt .
 
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     --trusted-host pypi.org \
     --trusted-host pypi.python.org \
