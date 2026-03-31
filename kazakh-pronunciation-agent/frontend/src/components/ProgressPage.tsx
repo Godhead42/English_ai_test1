@@ -4,6 +4,7 @@ import {
   TrendingUp, Trophy, Target, BarChart3, ArrowLeft,
   Activity, Zap, Award, Calendar
 } from 'lucide-react';
+import API_BASE_URL from '../apiConfig';
 
 interface ProgressResult {
   id: number;
@@ -37,16 +38,12 @@ export default function ProgressPage({ token, onBack }: ProgressPageProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const apiHost = window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : `http://${window.location.hostname}:8000`;
-
   const headers = { 'Authorization': `Bearer ${token}` };
 
   useEffect(() => {
     Promise.all([
-      fetch(`${apiHost}/api/progress`, { headers }).then(r => r.json()),
-      fetch(`${apiHost}/api/progress/stats`, { headers }).then(r => r.json()),
+      fetch(`${API_BASE_URL}/api/progress`, { headers }).then(r => r.json()),
+      fetch(`${API_BASE_URL}/api/progress/stats`, { headers }).then(r => r.json()),
     ])
       .then(([progressData, statsData]) => {
         setResults(progressData.results || []);

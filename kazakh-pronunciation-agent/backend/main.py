@@ -29,6 +29,26 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables created / verified")
 
+    # Seed admin user
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == "admin@kstu.kz").first()
+        if not admin:
+            admin = User(
+                email="admin@kstu.kz",
+                name="Admin",
+                hashed_password=hash_password("admin123"),
+                level="C1",
+            )
+            db.add(admin)
+            db.commit()
+            print("✅ Admin user created: admin@kstu.kz / admin123")
+        else:
+            print("✅ Admin user already exists")
+    finally:
+        db.close()
+
 
 # ── Pydantic schemas ─────────────────────────────
 class RegisterRequest(BaseModel):

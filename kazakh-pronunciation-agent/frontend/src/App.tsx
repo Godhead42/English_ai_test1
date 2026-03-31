@@ -9,6 +9,7 @@ import ChatBot from './components/ChatBot';
 import LevelCheck from './components/LevelCheck';
 import AuthPage from './components/AuthPage';
 import ProgressPage from './components/ProgressPage';
+import API_BASE_URL from './apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ────────────────────────────────────────────────
@@ -62,12 +63,9 @@ interface HistoryItem {
 }
 
 // ────────────────────────────────────────────────
-//  API Base URL
+//  API Base URL (from apiConfig.ts)
 // ────────────────────────────────────────────────
-const API_BASE = "http://audlev.kstu.kz";
-const API_HOST = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://localhost:8000'
-  : API_BASE;
+const API_BASE = API_BASE_URL;
 // ────────────────────────────────────────────────
 //  Helpers
 // ────────────────────────────────────────────────
@@ -436,6 +434,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [showProgress, setShowProgress] = useState(false);
+  const [showAuthPage, setShowAuthPage] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -457,6 +456,7 @@ export default function App() {
     setUser(newUser);
     localStorage.setItem('auth_token', newToken);
     localStorage.setItem('auth_user', JSON.stringify(newUser));
+    setShowAuthPage(false);
     if (newUser.level && newUser.level !== 'A1') {
       setSelectedLevel(newUser.level);
     }
@@ -702,7 +702,7 @@ export default function App() {
 
       // Auto-save to DB if user is authenticated
       if (token) {
-        fetch(`${API_HOST}/api/progress`, {
+        fetch(`${API_BASE}/api/progress`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -781,18 +781,18 @@ export default function App() {
   //  Render
   // ────────────────────────────────────────────────
 
-  // Step 1: Auth gate
-  if (!token) {
+  // Auth page (shown when user clicks Sign In / Sign Up)
+  if (showAuthPage) {
     return <AuthPage onAuth={handleAuth} />;
   }
 
-  // Step 2: Level check
+  // Step 1: Level check (available without auth)
   if (!hasCompletedTest) {
     return <LevelCheck onComplete={handleTestComplete} />;
   }
 
-  // Step 3: Progress page
-  if (showProgress) {
+  // Step 2: Progress page (requires auth)
+  if (showProgress && token) {
     return <ProgressPage token={token} onBack={() => setShowProgress(false)} />;
   }
 
@@ -824,26 +824,37 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowProgress(true)}
-                className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all"
-              >
-                📊 Progress
-              </button>
+              {token && (
+                <button
+                  onClick={() => setShowProgress(true)}
+                  className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all"
+                >
+                  📊 Progress
+                </button>
+              )}
               <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest">
                 Level {selectedLevel}
               </span>
-              {user && (
-                <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                  {user.name}
-                </span>
+              {user ? (
+                <>
+                  <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                    {user.name}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowAuthPage(true)}
+                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500/20 to-blue-500/20 border border-brand-500/30 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:from-brand-500/30 hover:to-blue-500/30 transition-all"
+                >
+                  Sign In / Sign Up
+                </button>
               )}
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all"
-              >
-                Logout
-              </button>
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"

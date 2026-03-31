@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { GraduationCap, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import API_BASE_URL from '../apiConfig';
 
 interface AuthPageProps {
   onAuth: (token: string, user: { id: number; email: string; name: string; level: string }) => void;
@@ -14,18 +15,14 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const apiHost = window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : `http://${window.location.hostname}:8000`;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     const url = mode === 'login'
-      ? `${apiHost}/api/auth/login`
-      : `${apiHost}/api/auth/register`;
+      ? `${API_BASE_URL}/api/auth/login`
+      : `${API_BASE_URL}/api/auth/register`;
 
     const body = mode === 'login'
       ? { email, password }

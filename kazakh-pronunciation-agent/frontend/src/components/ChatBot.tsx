@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import API_BASE_URL from '../apiConfig';
 
 interface Message {
     id: string;
@@ -41,10 +42,7 @@ export default function ChatBot() {
         setIsLoading(true);
 
         try {
-            const apiHost = window.location.hostname === 'localhost' 
-                ? 'http://localhost:8000' 
-                : `http://${window.location.hostname}:8000`;
-            const response = await fetch(`${apiHost}/chat`, {
+            const response = await fetch(`${API_BASE_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: userMessage.text })
