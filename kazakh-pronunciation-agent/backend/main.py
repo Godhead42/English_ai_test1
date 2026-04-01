@@ -511,24 +511,39 @@ async def analyze_pronunciation(
                 content = await audio_file.read()
                 temp_in.write(content)
                 temp_in_path = temp_in.name
+                
+            print(f"Received audio file '{audio_file.filename}' with size {len(content)} bytes. Saved to {temp_in_path}")
             
-            # Use pydub to convert to wav
-            temp_out_path = temp_in_path + ".wav"
-            audio = AudioSegment.from_file(temp_in_path)
-            audio.export(temp_out_path, format="wav")
+            # Save a backup for inspection
+            with open("latest_upload.webm", "wb") as f:
+                f.write(content)
             
-            # Use SpeechRecognition on the wav file
-            recognizer = sr.Recognizer()
-            with sr.AudioFile(temp_out_path) as source:
-                audio_data = recognizer.record(source)
-                recognized_text = recognizer.recognize_google(audio_data)
-            
-            # Cleanup temp files
-            os.remove(temp_in_path)
-            os.remove(temp_out_path)
+            if len(content) > 0:
+                # Use pydub to convert to wav
+                temp_out_path = temp_in_path + ".wav"
+                print(f"Converting to WAV: {temp_out_path}")
+                audio = AudioSegment.from_file(temp_in_path)
+                audio.export(temp_out_path, format="wav")
+                print("Conversion successful.")
+                
+                # Use SpeechRecognition on the wav file
+                print("Running SpeechRecognition...")
+                recognizer = sr.Recognizer()
+                with sr.AudioFile(temp_out_path) as source:
+                    audio_data = recognizer.record(source)
+                    recognized_text = recognizer.recognize_google(audio_data)
+                    print(f"Speech recognition result: '{recognized_text}'")
+                
+                # Cleanup temp files
+                os.remove(temp_in_path)
+                os.remove(temp_out_path)
+            else:
+                print("Audio file is empty!")
+                os.remove(temp_in_path)
+                
         except sr.UnknownValueError:
             # Google Speech Recognition could not understand audio
-            pass
+            print("Google Speech Recognition could not understand audio (sr.UnknownValueError)")
         except sr.RequestError as e:
             # Could not request results from Google Speech Recognition service
             print(f"Could not request results from Google SR service; {e}")
@@ -615,9 +630,10 @@ def text_to_speech(text: str, slow: bool = False):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-N8N_WEBHOOK_URL = "https://n8n.kstu.kz/webhook/english-ai-agent"
+import os
+N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "https://n8n.kstu.kz/webhook/english-ai-agent")
 
-@app.post("/chat")
+@app.post("/api/chat")
 async def chat_with_ai(request: Request, message: str = Body(..., embed=True)):
     # Используем IP клиента как уникальный session_id для Simple Memory
     session_id = request.client.host if request.client else "anonymous"
