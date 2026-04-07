@@ -5,6 +5,7 @@ import {
   Activity, Zap, Award, Calendar
 } from 'lucide-react';
 import API_BASE_URL from '../apiConfig';
+import { t, Lang } from '../i18n';
 
 interface ProgressResult {
   id: number;
@@ -14,6 +15,8 @@ interface ProgressResult {
   accuracy: number;
   fluency: number;
   completeness: number;
+  intonation: number;
+  stress: number;
   issue_count: number;
   created_at: string | null;
 }
@@ -24,6 +27,8 @@ interface Stats {
   avg_accuracy: number;
   avg_fluency: number;
   avg_completeness: number;
+  avg_intonation: number;
+  avg_stress: number;
   best_score: number;
   improvement: number;
 }
@@ -31,9 +36,10 @@ interface Stats {
 interface ProgressPageProps {
   token: string;
   onBack: () => void;
+  lang: Lang;
 }
 
-export default function ProgressPage({ token, onBack }: ProgressPageProps) {
+export default function ProgressPage({ token, onBack, lang }: ProgressPageProps) {
   const [results, setResults] = useState<ProgressResult[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,54 +74,53 @@ export default function ProgressPage({ token, onBack }: ProgressPageProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-brand-400 animate-pulse text-xl font-bold">Loading progress...</div>
+        <div className="text-brand-400 animate-pulse text-xl font-bold">
+          {lang === 'ru' ? 'Загрузка прогресса...' : 'Loading progress...'}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-hidden">
-      {/* Background */}
       <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-brand-600/10 blur-[150px] pointer-events-none" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
       <main className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 transition-all"
-          >
+          <button onClick={onBack}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 transition-all">
             <ArrowLeft className="w-5 h-5 text-slate-300" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">My Progress</h1>
-            <p className="text-slate-400 text-sm">Track your pronunciation improvement</p>
+            <h1 className="text-2xl font-bold text-white">{t('progress.title', lang)}</h1>
+            <p className="text-slate-400 text-sm">
+              {lang === 'ru' ? 'Отслеживайте улучшение произношения' : 'Track your pronunciation improvement'}
+            </p>
           </div>
         </div>
 
-        {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
               className="glass-panel p-4 text-center">
               <Activity className="w-5 h-5 text-brand-400 mx-auto mb-2" />
               <div className="text-2xl font-bold text-white">{stats.total_sessions}</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Sessions</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.sessions', lang)}</div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="glass-panel p-4 text-center">
               <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
               <div className={`text-2xl font-bold ${getScoreColor(stats.avg_overall)}`}>{stats.avg_overall}%</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Avg Score</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.avg', lang)}</div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
               className="glass-panel p-4 text-center">
               <Trophy className="w-5 h-5 text-amber-400 mx-auto mb-2" />
               <div className="text-2xl font-bold text-amber-300">{stats.best_score}%</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Best Score</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.best', lang)}</div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
@@ -124,23 +129,24 @@ export default function ProgressPage({ token, onBack }: ProgressPageProps) {
               <div className={`text-2xl font-bold ${stats.improvement >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {stats.improvement >= 0 ? '+' : ''}{stats.improvement}%
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Improvement</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.improvement', lang)}</div>
             </motion.div>
           </div>
         )}
 
-        {/* Score Breakdown */}
         {stats && stats.total_sessions > 0 && (
           <div className="glass-panel p-6 mb-8">
             <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" /> Average Scores
+              <BarChart3 className="w-4 h-4" /> {lang === 'ru' ? 'Средние баллы' : 'Average Scores'}
             </h2>
             <div className="space-y-4">
               {[
-                { label: 'Overall', value: stats.avg_overall },
-                { label: 'Accuracy', value: stats.avg_accuracy },
-                { label: 'Fluency', value: stats.avg_fluency },
-                { label: 'Completeness', value: stats.avg_completeness },
+                { label: t('score.total', lang), value: stats.avg_overall },
+                { label: t('score.accuracy', lang), value: stats.avg_accuracy },
+                { label: t('score.fluency', lang), value: stats.avg_fluency },
+                { label: t('score.complete', lang), value: stats.avg_completeness },
+                { label: t('score.intonation', lang), value: stats.avg_intonation || 0 },
+                { label: t('score.stress', lang), value: stats.avg_stress || 0 },
               ].map(item => (
                 <div key={item.label}>
                   <div className="flex justify-between text-sm mb-1">
@@ -161,16 +167,15 @@ export default function ProgressPage({ token, onBack }: ProgressPageProps) {
           </div>
         )}
 
-        {/* Recent Sessions */}
         <div className="glass-panel p-6">
           <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-            <Calendar className="w-4 h-4" /> Recent Sessions
+            <Calendar className="w-4 h-4" /> {t('progress.history', lang)}
           </h2>
 
           {results.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <Award className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No sessions yet. Start practicing to see your progress!</p>
+              <p className="text-sm">{t('progress.no_data', lang)}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -193,7 +198,7 @@ export default function ProgressPage({ token, onBack }: ProgressPageProps) {
                       )}
                       {r.issue_count > 0 && (
                         <span className="text-[10px] text-amber-400 flex items-center gap-1">
-                          <Zap className="w-3 h-3" /> {r.issue_count} issues
+                          <Zap className="w-3 h-3" /> {r.issue_count} {lang === 'ru' ? 'ошибок' : 'issues'}
                         </span>
                       )}
                     </div>

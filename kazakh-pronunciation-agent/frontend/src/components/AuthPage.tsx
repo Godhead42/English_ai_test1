@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { GraduationCap, Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import API_BASE_URL from '../apiConfig';
+import { t, Lang } from '../i18n';
 
 interface AuthPageProps {
   onAuth: (token: string, user: { id: number; email: string; name: string; level: string }) => void;
   onBack?: () => void;
+  lang: Lang;
 }
 
-export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
+export default function AuthPage({ onAuth, onBack, lang }: AuthPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,13 +41,13 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.detail || 'Something went wrong');
+        setError(data.detail || (lang === 'ru' ? 'Что-то пошло не так' : 'Something went wrong'));
         return;
       }
 
       onAuth(data.token, data.user);
     } catch {
-      setError('Could not connect to server. Please try again.');
+      setError(lang === 'ru' ? 'Не удалось подключиться к серверу.' : 'Could not connect to server.');
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,6 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden text-slate-100 font-sans">
-      {/* Background Lighting */}
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-brand-600/20 blur-[150px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none" />
 
@@ -62,13 +63,14 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
         animate={{ opacity: 1, scale: 1 }}
         className="glass-panel max-w-md w-full p-8 md:p-10 relative z-10 border border-white/10 shadow-2xl rounded-3xl"
       >
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-400 to-blue-600 flex items-center justify-center shadow-lg shadow-brand-500/30 mb-4">
             <GraduationCap className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">AI English Coach</h1>
-          <p className="text-slate-400 text-sm mt-1">Improve your pronunciation with AI</p>
+          <p className="text-slate-400 text-sm mt-1">
+            {lang === 'ru' ? 'Улучшайте произношение с ИИ' : 'Improve your pronunciation with AI'}
+          </p>
         </div>
 
         {/* Tab Switcher */}
@@ -81,7 +83,7 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Sign In
+            {t('auth.login_tab', lang)}
           </button>
           <button
             onClick={() => { setMode('register'); setError(''); }}
@@ -91,28 +93,23 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Register
+            {t('auth.register_tab', lang)}
           </button>
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm text-center">
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Your name"
-                required
+                type="text" value={name} onChange={e => setName(e.target.value)}
+                placeholder={t('auth.name', lang)} required
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500/50 transition-colors placeholder-slate-500"
               />
             </div>
@@ -121,11 +118,8 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Email address"
-              required
+              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder={t('auth.email', lang)} required
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500/50 transition-colors placeholder-slate-500"
             />
           </div>
@@ -133,40 +127,34 @@ export default function AuthPage({ onAuth, onBack }: AuthPageProps) {
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Password"
-              required
-              minLength={4}
+              type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder={t('auth.password', lang)} required minLength={4}
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500/50 transition-colors placeholder-slate-500"
             />
           </div>
 
           <button
-            type="submit"
-            disabled={loading}
+            type="submit" disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-400 hover:to-blue-500 text-white font-bold text-sm tracking-wide shadow-xl shadow-brand-500/20 hover:shadow-brand-500/40 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                {mode === 'login' ? 'Sign In' : 'Create Account'}
+                {mode === 'login' ? t('auth.login_btn', lang) : t('auth.register_btn', lang)}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        {/* Back to Main */}
         {onBack && (
           <button
             onClick={onBack}
             className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-sm font-medium hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Main
+            {t('auth.back', lang)}
           </button>
         )}
       </motion.div>

@@ -1,17 +1,19 @@
 import { motion } from 'framer-motion';
 import type { Topic } from '../types';
+import { t, Lang } from '../i18n';
 
 interface Props {
   topics: Topic[];
   selected: string;
   onSelect: (id: string) => void;
+  lang: Lang;
 }
 
-export default function TopicSelector({ topics, selected, onSelect }: Props) {
+export default function TopicSelector({ topics, selected, onSelect, lang }: Props) {
   return (
     <div className="w-full max-w-3xl mx-auto mb-8">
       <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 text-center flex items-center justify-center gap-2">
-        📚 Choose a Topic
+        {t('topic.select', lang)}
       </h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {topics.map((topic) => (

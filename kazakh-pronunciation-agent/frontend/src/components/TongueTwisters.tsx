@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Volume2, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import API_BASE_URL from '../apiConfig';
+import { t, Lang } from '../i18n';
 
 interface Props {
   level: string;
+  lang: Lang;
 }
 
-export default function TongueTwisters({ level }: Props) {
+export default function TongueTwisters({ level, lang }: Props) {
   const [twisters, setTwisters] = useState<string[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -37,7 +39,7 @@ export default function TongueTwisters({ level }: Props) {
     <div className="w-full max-w-2xl mx-auto mb-8">
       <div className="glass-panel p-6 space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-amber-400 font-bold flex items-center gap-2">
-          🌀 Tongue Twister — {level}
+          {t('twister.title', lang)} — {level}
         </h3>
         <motion.p
           key={currentIdx}
@@ -54,18 +56,18 @@ export default function TongueTwisters({ level }: Props) {
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-widest hover:bg-amber-500/30 transition-all disabled:opacity-40"
           >
             <Volume2 className="w-4 h-4" />
-            {playing ? 'Playing...' : 'Listen Slowly'}
+            {playing ? t('twister.playing', lang) : t('twister.listen', lang)}
           </button>
           <button
             onClick={() => setCurrentIdx(i => (i + 1) % twisters.length)}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Next
+            {t('twister.next', lang)}
           </button>
         </div>
         <p className="text-[10px] text-slate-500 uppercase tracking-wider">
-          {currentIdx + 1} / {twisters.length} — Practice tongue twisters to improve pronunciation speed and clarity
+          {currentIdx + 1} / {twisters.length} — {t('twister.hint', lang)}
         </p>
       </div>
     </div>
