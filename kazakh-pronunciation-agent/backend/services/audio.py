@@ -1,49 +1,26 @@
-"""Audio conversion & speech-to-text helpers."""
-import os
-import tempfile
-import speech_recognition as sr
-from pydub import AudioSegment
+"""Audio transcription via OpenAI Whisper."""
+import io
+from config import openai_client
 
 
-async def transcribe_audio(audio_file) -> str:
+async def transcribe_audio(file_bytes: bytes, filename: str = "recording.webm") -> str:
     """
-    Receive an uploaded audio file (webm/mp4/etc), convert to wav via
-    pydub+ffmpeg, then run Google Speech Recognition on it.
-
+    Transcribe audio bytes using OpenAI Whisper-1.
     Returns the recognised text, or an empty string on failure.
     """
-    content = await audio_file.read()
-    if not content:
+    if not file_bytes:
         return ""
 
-    # Save to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    recognised = ""
-    wav_path = tmp_path + ".wav"
-
     try:
-        # Convert to wav
-        audio = AudioSegment.from_file(tmp_path)
-        audio.export(wav_path, format="wav")
+        audio_file = io.BytesIO(file_bytes)
+        audio_file.name = filename  # OpenAI needs the name to detect format
 
-        # Speech recognition
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_path) as source:
-            audio_data = recognizer.record(source)
-            recognised = recognizer.recognize_google(audio_data)
-    except sr.UnknownValueError:
-        print("STT: Google could not understand audio")
-    except sr.RequestError as exc:
-        print(f"STT: Google request error – {exc}")
+        transcription = openai_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            language="en",
+        )
+        return transcription.text.strip()
     except Exception as exc:
-        print(f"STT: unexpected error – {exc}")
-    finally:
-        for p in (tmp_path, wav_path):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
-    return recognised
+        print(f"Whisper STT error: {exc}")
+        return ""
