@@ -9,8 +9,12 @@ import ChatBot from './components/ChatBot';
 import LevelCheck from './components/LevelCheck';
 import AuthPage from './components/AuthPage';
 import ProgressPage from './components/ProgressPage';
+import TopicSelector from './components/TopicSelector';
+import TongueTwisters from './components/TongueTwisters';
 import API_BASE_URL from './apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { CEFRLevel, Topic, AnalysisResult, HistoryItem, WordAnalysis, PhoneticIssue, StressIssue } from './types';
+import { getScoreColor, getScoreBg, getScoreLabel } from './data/constants';
 
 // ────────────────────────────────────────────────
 //  Web Speech API types
@@ -18,76 +22,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 // ────────────────────────────────────────────────
-//  Types
-// ────────────────────────────────────────────────
-interface CEFRLevel {
-  code: string;
-  name: string;
-  description: string;
-}
-
-interface WordAnalysis {
-  correct: { word: string; status: string }[];
-  incorrect: { word: string; spoken_as: string; similarity: number; status: string }[];
-  missing: { word: string; status: string }[];
-  extra: { word: string; status: string }[];
-}
-
-interface PhoneticIssue {
-  word: string;
-  spoken_as: string | null;
-  category: string;
-  ipa_correct: string;
-  common_error: string;
-  issue: string;
-  tip: string;
-}
-
-interface AnalysisResult {
-  scores: { overall: number; accuracy: number; fluency: number; completeness: number };
-  word_analysis: WordAnalysis;
-  phonetic_issues: PhoneticIssue[];
-  target_text: string;
-  user_text: string;
-  summary: string;
-}
-
-interface HistoryItem {
-  id: string;
-  phrase: string;
-  level: string;
-  score: number;
-  accuracy: number;
-  date: string;
-  issueCount: number;
-}
-
-// ────────────────────────────────────────────────
-//  API Base URL (from apiConfig.ts)
+//  API Base
 // ────────────────────────────────────────────────
 const API_BASE = API_BASE_URL;
-// ────────────────────────────────────────────────
-//  Helpers
-// ────────────────────────────────────────────────
-function getScoreColor(score: number) {
-  if (score >= 85) return 'text-emerald-400';
-  if (score >= 65) return 'text-amber-400';
-  return 'text-red-400';
-}
-
-function getScoreBg(score: number) {
-  if (score >= 85) return 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30';
-  if (score >= 65) return 'from-amber-500/20 to-amber-500/5 border-amber-500/30';
-  return 'from-red-500/20 to-red-500/5 border-red-500/30';
-}
-
-function getScoreLabel(score: number) {
-  if (score >= 90) return 'Excellent!';
-  if (score >= 75) return 'Great Job!';
-  if (score >= 60) return 'Good Effort!';
-  if (score >= 40) return 'Keep Practicing';
-  return 'Try Again';
-}
 
 // ────────────────────────────────────────────────
 //  Component: Level Selector
@@ -99,7 +36,7 @@ function LevelSelector({
 }: {
   levels: CEFRLevel[];
   selected: string;
-  onSelect: (code: string) => void
+  onSelect: (code: string) => void;
 }) {
   const levelColors: Record<string, string> = {
     'A1': 'from-green-400 to-emerald-500',
@@ -157,7 +94,6 @@ function LevelSelector({
 //  Component: TTS PlayButton (uses backend gTTS)
 // ────────────────────────────────────────────────
 
-// Audio cache to avoid re-fetching the same text
 const audioCache = new Map<string, string>();
 
 function SpeakButton({
@@ -177,7 +113,6 @@ function SpeakButton({
   const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -188,70 +123,46 @@ function SpeakButton({
   }, []);
 
   const speak = useCallback(async () => {
-    // If already speaking, stop
     if (audioRef.current && isSpeaking) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsSpeaking(false);
       return;
     }
-
     setIsLoading(true);
-
     try {
       const cacheKey = `${text}_${slow}`;
       let audioUrl = audioCache.get(cacheKey);
-
       if (!audioUrl) {
-        // Fetch audio from backend TTS
         const params = new URLSearchParams({ text, slow: String(slow) });
         const response = await fetch(`${API_BASE}/api/tts?${params}`);
-
         if (!response.ok) throw new Error('TTS failed');
-
         const blob = await response.blob();
         audioUrl = URL.createObjectURL(blob);
         audioCache.set(cacheKey, audioUrl);
       }
-
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-
-      audio.onplay = () => {
-        setIsSpeaking(true);
-        setIsLoading(false);
-      };
-      audio.onended = () => {
-        setIsSpeaking(false);
-      };
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setIsLoading(false);
-      };
-
+      audio.onplay = () => { setIsSpeaking(true); setIsLoading(false); };
+      audio.onended = () => { setIsSpeaking(false); };
+      audio.onerror = () => { setIsSpeaking(false); setIsLoading(false); };
       await audio.play();
-    } catch (err) {
-      console.error('TTS error:', err);
+    } catch {
       setIsLoading(false);
       setIsSpeaking(false);
-
-      // Fallback: try browser speechSynthesis
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = slow ? 0.6 : 0.85;
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        speechSynthesis.speak(utterance);
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US'; u.rate = slow ? 0.6 : 0.85;
+        u.onstart = () => setIsSpeaking(true);
+        u.onend = () => setIsSpeaking(false);
+        u.onerror = () => setIsSpeaking(false);
+        speechSynthesis.speak(u);
       }
     }
   }, [text, isSpeaking, slow]);
 
-  const sizeClasses = size === "small"
-    ? "px-3 py-1.5 text-[10px] gap-1"
-    : "px-4 py-2 text-xs gap-2";
+  const sizeClasses = size === "small" ? "px-3 py-1.5 text-[10px] gap-1" : "px-4 py-2 text-xs gap-2";
 
   return (
     <button
@@ -283,34 +194,26 @@ function SpeakButton({
 //  Component: Word-by-word Highlight
 // ────────────────────────────────────────────────
 function WordHighlight({ analysis }: { analysis: WordAnalysis }) {
-  // Display words grouped by status (correct, incorrect, missing, extra)
   return (
     <div className="space-y-4">
       {analysis.correct.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
-              Correct Words ({analysis.correct.length})
-            </span>
+            <span className="text-xs uppercase tracking-widest text-emerald-400 font-bold">Correct Words ({analysis.correct.length})</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {analysis.correct.map((w, i) => (
-              <span key={`c-${i}`} className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-200 text-sm font-medium">
-                {w.word}
-              </span>
+              <span key={`c-${i}`} className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-200 text-sm font-medium">{w.word}</span>
             ))}
           </div>
         </div>
       )}
-
       {analysis.incorrect.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-amber-400" />
-            <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
-              Mispronounced ({analysis.incorrect.length})
-            </span>
+            <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">Mispronounced ({analysis.incorrect.length})</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {analysis.incorrect.map((w, i) => (
@@ -324,38 +227,28 @@ function WordHighlight({ analysis }: { analysis: WordAnalysis }) {
           </div>
         </div>
       )}
-
       {analysis.missing.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
             <XCircle className="w-4 h-4 text-red-400" />
-            <span className="text-xs uppercase tracking-widest text-red-400 font-bold">
-              Missing ({analysis.missing.length})
-            </span>
+            <span className="text-xs uppercase tracking-widest text-red-400 font-bold">Missing ({analysis.missing.length})</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {analysis.missing.map((w, i) => (
-              <span key={`m-${i}`} className="px-2.5 py-1 rounded-lg bg-red-500/15 border border-red-500/25 text-red-200 text-sm font-medium line-through opacity-80">
-                {w.word}
-              </span>
+              <span key={`m-${i}`} className="px-2.5 py-1 rounded-lg bg-red-500/15 border border-red-500/25 text-red-200 text-sm font-medium line-through opacity-80">{w.word}</span>
             ))}
           </div>
         </div>
       )}
-
       {analysis.extra.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-slate-400" />
-            <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-              Extra Words ({analysis.extra.length})
-            </span>
+            <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">Extra Words ({analysis.extra.length})</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {analysis.extra.map((w, i) => (
-              <span key={`e-${i}`} className="px-2.5 py-1 rounded-lg bg-slate-500/15 border border-slate-500/25 text-slate-300 text-sm font-medium italic">
-                +{w.word}
-              </span>
+              <span key={`e-${i}`} className="px-2.5 py-1 rounded-lg bg-slate-500/15 border border-slate-500/25 text-slate-300 text-sm font-medium italic">+{w.word}</span>
             ))}
           </div>
         </div>
@@ -365,7 +258,7 @@ function WordHighlight({ analysis }: { analysis: WordAnalysis }) {
 }
 
 // ────────────────────────────────────────────────
-//  Component: Phonetic Issue Card with TTS
+//  Component: Phonetic Issue Card
 // ────────────────────────────────────────────────
 function PhoneticIssueCard({ issue, index }: { issue: PhoneticIssue; index: number }) {
   return (
@@ -376,19 +269,12 @@ function PhoneticIssueCard({ issue, index }: { issue: PhoneticIssue; index: numb
       className="glass-panel p-5 relative overflow-hidden"
     >
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-brand-400 to-brand-600" />
-
       <div className="flex flex-col md:flex-row gap-4">
-        {/* Word */}
         <div className="min-w-[120px] flex flex-col gap-2">
           <div className="text-xl font-bold text-white">"{issue.word}"</div>
-          <div className="text-[10px] uppercase tracking-widest text-brand-400 font-bold">
-            {issue.issue}
-          </div>
-          {/* Listen to correct pronunciation */}
+          <div className="text-[10px] uppercase tracking-widest text-brand-400 font-bold">{issue.issue}</div>
           <SpeakButton text={issue.word} label="Listen" size="small" />
         </div>
-
-        {/* Comparison */}
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {issue.spoken_as && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
@@ -403,13 +289,36 @@ function PhoneticIssueCard({ issue, index }: { issue: PhoneticIssue; index: numb
           </div>
         </div>
       </div>
-
-      {/* Tip */}
       <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
         <div className="flex items-start gap-2">
           <Sparkles className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
           <p className="text-sm text-blue-200/80">{issue.tip}</p>
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ────────────────────────────────────────────────
+//  Component: Stress Issue Card (NEW)
+// ────────────────────────────────────────────────
+function StressIssueCard({ issue, index }: { issue: StressIssue; index: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.2 + (index * 0.1) }}
+      className="glass-panel p-4 relative overflow-hidden flex items-center gap-4"
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-400 to-violet-600" />
+      <div className="min-w-[100px]">
+        <div className="text-lg font-bold text-white">"{issue.word}"</div>
+        <SpeakButton text={issue.word} label="Listen" size="small" className="mt-1" />
+      </div>
+      <div className="flex-1">
+        <div className="text-[10px] uppercase tracking-widest text-violet-400 font-bold mb-1">Stress Pattern</div>
+        <div className="text-sm text-violet-200">{issue.correct_stress}</div>
+        <div className="text-[10px] text-slate-500 mt-1">Common mistake: {issue.common_mistake}</div>
       </div>
     </motion.div>
   );
@@ -424,8 +333,16 @@ export default function App() {
   const [levels, setLevels] = useState<CEFRLevel[]>([]);
   const [selectedLevel, setSelectedLevel] = useState('A1');
   const [hasCompletedTest, setHasCompletedTest] = useState(() => localStorage.getItem('has_completed_test') === 'true');
+
+  // Topics
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState('');
+
   const [phrases, setPhrases] = useState<string[]>([]);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+
+  // Tab: 'practice' or 'twisters'
+  const [activeTab, setActiveTab] = useState<'practice' | 'twisters'>('practice');
 
   // Auth state
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
@@ -438,10 +355,7 @@ export default function App() {
 
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  // isAnalyzing tracked via step === 'analyzing'
   const [result, setResult] = useState<AnalysisResult | null>(null);
-
-  // Step tracking for the flow
   const [step, setStep] = useState<'ready' | 'recording' | 'analyzing' | 'results'>('ready');
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -458,14 +372,11 @@ export default function App() {
     localStorage.setItem('auth_token', newToken);
     localStorage.setItem('auth_user', JSON.stringify(newUser));
     setShowAuthPage(false);
-    if (newUser.level && newUser.level !== 'A1') {
-      setSelectedLevel(newUser.level);
-    }
+    if (newUser.level && newUser.level !== 'A1') setSelectedLevel(newUser.level);
   };
 
   const handleLogout = () => {
-    setToken(null);
-    setUser(null);
+    setToken(null); setUser(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('has_completed_test');
@@ -480,19 +391,12 @@ export default function App() {
 
   // ─── Effects ─────────────────────────────────
 
-  // Load levels on mount
+  // Load levels + topics on mount
   useEffect(() => {
     fetch(`${API_BASE}/api/levels`)
-      .then(r => {
-        if (!r.ok) throw new Error("Network response was not ok");
-        return r.json();
-      })
-      .then(data => {
-        if (!data || !data.levels) throw new Error("Invalid format");
-        setLevels(data.levels);
-      })
+      .then(r => r.json())
+      .then(data => setLevels(data?.levels || []))
       .catch(() => {
-        // Fallback levels if backend is down
         setLevels([
           { code: 'A1', name: 'Beginner', description: 'Simple everyday phrases' },
           { code: 'A2', name: 'Elementary', description: 'Common daily expressions' },
@@ -503,7 +407,15 @@ export default function App() {
         ]);
       });
 
-    // Load history
+    fetch(`${API_BASE}/api/topics`)
+      .then(r => r.json())
+      .then(data => {
+        const list = data?.topics || [];
+        setTopics(list);
+        if (list.length > 0) setSelectedTopic(list[0].id);
+      })
+      .catch(() => {});
+
     const saved = localStorage.getItem("pronunciation_history");
     if (saved) setHistory(JSON.parse(saved));
 
@@ -518,79 +430,47 @@ export default function App() {
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
         let interimTranscript = '';
-
         for (let i = 0; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript + ' ';
-          } else {
-            interimTranscript += result[0].transcript;
-          }
+          const r = event.results[i];
+          if (r.isFinal) finalTranscript += r[0].transcript + ' ';
+          else interimTranscript += r[0].transcript;
         }
-
-        // Use final transcript if available, otherwise interim
         const combined = finalTranscript.trim() || interimTranscript.trim();
-        if (combined) {
-          transcriptRef.current = combined;
-        }
+        if (combined) transcriptRef.current = combined;
       };
 
-      // Auto-restart if recognition stops unexpectedly during recording
       recognition.onend = () => {
-        // Only restart if we're still recording
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          try {
-            recognition.start();
-          } catch {
-            // Already started or other error — ignore
-          }
+        if (mediaRecorderRef.current?.state === 'recording') {
+          try { recognition.start(); } catch {}
         }
       };
-
       recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error);
-        // For "no-speech" errors, auto-restart if still recording
         if (event.error === 'no-speech' && mediaRecorderRef.current?.state === 'recording') {
-          try {
-            recognition.start();
-          } catch {
-            // ignore
-          }
+          try { recognition.start(); } catch {}
         }
       };
-
       recognitionRef.current = recognition;
     }
 
-    // Preload voices
-    if ('speechSynthesis' in window) {
-      speechSynthesis.getVoices();
-    }
+    if ('speechSynthesis' in window) speechSynthesis.getVoices();
   }, []);
 
-  // Load phrases when level changes
+  // Load phrases when level or topic changes
   useEffect(() => {
-    fetch(`${API_BASE}/api/phrases?level=${selectedLevel}`)
-      .then(r => {
-        if (!r.ok) throw new Error("Network response was not ok");
-        return r.json();
-      })
+    const params = new URLSearchParams({ level: selectedLevel });
+    if (selectedTopic) params.set('topic', selectedTopic);
+    fetch(`${API_BASE}/api/phrases?${params}`)
+      .then(r => r.json())
       .then(data => {
-        if (!data || !data.phrases) throw new Error("Invalid format");
-        setPhrases(data.phrases);
+        setPhrases(data?.phrases || []);
         setCurrentPhraseIndex(0);
         setResult(null);
         setStep('ready');
       })
       .catch(() => {
-        // Fallback
-        setPhrases([
-          "Hello, my name is Anna.",
-          "The weather is nice today.",
-          "Can you help me please?",
-        ]);
+        setPhrases(["Hello, my name is Anna.", "The weather is nice today.", "Can you help me please?"]);
       });
-  }, [selectedLevel]);
+  }, [selectedLevel, selectedTopic]);
 
   // Save history
   useEffect(() => {
@@ -603,39 +483,21 @@ export default function App() {
     setResult(null);
     transcriptRef.current = "";
     setStep('recording');
-
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setStream(audioStream);
-
-      // Determine mimeType for maximum mobile compatibility
       let mimeType = '';
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4';
-      }
-
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
       const mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-
+      mediaRecorder.ondataavailable = (e) => { if (e.data?.size > 0) audioChunksRef.current.push(e.data); };
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-        const userText = transcriptRef.current.trim();
-        submitAnalysis(userText, audioBlob);
+        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
+        submitAnalysis(transcriptRef.current.trim(), blob);
       };
-
-      if (recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch { }
-      }
-
+      if (recognitionRef.current) { try { recognitionRef.current.start(); } catch {} }
       mediaRecorder.start(100);
       setIsRecording(true);
     } catch {
@@ -646,17 +508,11 @@ export default function App() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch { }
-      }
+      if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setStep('analyzing');
-
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        setStream(null);
-      }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); setStream(null); }
     }
   };
 
@@ -664,163 +520,85 @@ export default function App() {
 
   const submitAnalysis = async (userText: string, audioBlob?: Blob) => {
     setStep('analyzing');
-
     const targetText = phrases[currentPhraseIndex] || "";
-
-    // If no speech was detected AND no audio blob was captured, show useful feedback immediately
     if (!userText.trim() && !audioBlob) {
-      const targetWords = targetText.toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/);
+      const tw = targetText.toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/);
       setResult({
-        scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0 },
-        word_analysis: {
-          correct: [],
-          incorrect: [],
-          missing: targetWords.map(w => ({ word: w, status: 'missing' })),
-          extra: [],
-        },
-        phonetic_issues: [],
-        target_text: targetText,
-        user_text: '',
-        summary: 'No speech was detected. Please make sure your microphone is working and speak clearly. Try holding the record button longer for longer phrases.',
+        scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 },
+        word_analysis: { correct: [], incorrect: [], missing: tw.map(w => ({ word: w, status: 'missing' })), extra: [] },
+        phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: '',
+        summary: 'No speech was detected. Please make sure your microphone is working and speak clearly.',
       });
       setStep('results');
       return;
     }
-
     try {
       const formData = new FormData();
       formData.append('target_text', targetText);
       formData.append('user_text', userText);
-
-      if (audioBlob) {
-        formData.append('audio_file', audioBlob, 'recording.webm');
-      }
-
-      const response = await fetch(`${API_BASE}/api/analyze`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
+      if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm');
+      const response = await fetch(`${API_BASE}/api/analyze`, { method: 'POST', body: formData });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data: AnalysisResult = await response.json();
       setResult(data);
       setStep('results');
 
-      // Save to history
       const historyItem: HistoryItem = {
         id: Math.random().toString(36).substring(7),
-        phrase: targetText,
-        level: selectedLevel,
-        score: data.scores.overall,
-        accuracy: data.scores.accuracy,
-        date: new Date().toLocaleTimeString(),
-        issueCount: data.phonetic_issues.length,
+        phrase: targetText, level: selectedLevel, topic: selectedTopic,
+        score: data.scores.overall, accuracy: data.scores.accuracy,
+        date: new Date().toLocaleTimeString(), issueCount: data.phonetic_issues.length,
       };
       setHistory(prev => [historyItem, ...prev].slice(0, 50));
 
-      // Auto-save to DB if user is authenticated
       if (token) {
         fetch(`${API_BASE}/api/progress`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
-            phrase: targetText,
-            level: selectedLevel,
-            overall_score: data.scores.overall,
-            accuracy: data.scores.accuracy,
-            fluency: data.scores.fluency,
-            completeness: data.scores.completeness,
+            phrase: targetText, level: selectedLevel, topic: selectedTopic,
+            overall_score: data.scores.overall, accuracy: data.scores.accuracy,
+            fluency: data.scores.fluency, completeness: data.scores.completeness,
+            intonation: data.scores.intonation || 0, stress: data.scores.stress || 0,
             issue_count: data.phonetic_issues.length,
           }),
         }).catch(err => console.error('Failed to save progress:', err));
       }
     } catch {
-      // Offline fallback — basic comparison
-      const targetNorm = targetText.toLowerCase().replace(/[^\w\s']/g, '');
-      const userNorm = userText.toLowerCase().replace(/[^\w\s']/g, '');
-
-      const targetWords = targetNorm.split(/\s+/);
-      const userWords = userNorm.split(/\s+/);
-
-      const correct = targetWords.filter(w => userWords.includes(w));
-      const missing = targetWords.filter(w => !userWords.includes(w));
-      const extra = userWords.filter(w => !targetWords.includes(w));
-
-      const score = Math.round((correct.length / Math.max(targetWords.length, 1)) * 100);
-
+      const tn = targetText.toLowerCase().replace(/[^\w\s']/g, '');
+      const un = userText.toLowerCase().replace(/[^\w\s']/g, '');
+      const tw2 = tn.split(/\s+/); const uw2 = un.split(/\s+/);
+      const correct = tw2.filter(w => uw2.includes(w));
+      const missing = tw2.filter(w => !uw2.includes(w));
+      const extra = uw2.filter(w => !tw2.includes(w));
+      const score = Math.round((correct.length / Math.max(tw2.length, 1)) * 100);
       setResult({
-        scores: { overall: score, accuracy: score, fluency: Math.max(0, score - 10), completeness: score },
-        word_analysis: {
-          correct: correct.map(w => ({ word: w, status: 'correct' })),
-          incorrect: [],
-          missing: missing.map(w => ({ word: w, status: 'missing' })),
-          extra: extra.map(w => ({ word: w, status: 'extra' })),
-        },
-        phonetic_issues: [],
-        target_text: targetText,
-        user_text: userText,
-        summary: userText ? `${correct.length}/${targetWords.length} words matched.` : 'No speech detected.',
+        scores: { overall: score, accuracy: score, fluency: Math.max(0, score - 10), completeness: score, intonation: 0, stress: 0 },
+        word_analysis: { correct: correct.map(w => ({ word: w, status: 'correct' })), incorrect: [],
+          missing: missing.map(w => ({ word: w, status: 'missing' })), extra: extra.map(w => ({ word: w, status: 'extra' })) },
+        phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText,
+        summary: userText ? `${correct.length}/${tw2.length} words matched.` : 'No speech detected.',
       });
       setStep('results');
     }
-
   };
 
   // ─── Navigation ──────────────────────────────
-
-  const nextPhrase = () => {
-    setCurrentPhraseIndex(prev => (prev + 1) % phrases.length);
-    setResult(null);
-    setStep('ready');
-  };
-
-  const prevPhrase = () => {
-    setCurrentPhraseIndex(prev => (prev - 1 + phrases.length) % phrases.length);
-    setResult(null);
-    setStep('ready');
-  };
-
-  const tryAgain = () => {
-    setResult(null);
-    setStep('ready');
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    localStorage.removeItem("pronunciation_history");
-  };
-
+  const nextPhrase = () => { setCurrentPhraseIndex(prev => (prev + 1) % phrases.length); setResult(null); setStep('ready'); };
+  const prevPhrase = () => { setCurrentPhraseIndex(prev => (prev - 1 + phrases.length) % phrases.length); setResult(null); setStep('ready'); };
+  const tryAgain = () => { setResult(null); setStep('ready'); };
+  const clearHistory = () => { setHistory([]); localStorage.removeItem("pronunciation_history"); };
   const currentPhrase = phrases?.[currentPhraseIndex] || "";
 
   // ────────────────────────────────────────────────
   //  Render
   // ────────────────────────────────────────────────
+  if (showAuthPage) return <AuthPage onAuth={handleAuth} onBack={() => setShowAuthPage(false)} />;
+  if (!hasCompletedTest) return <LevelCheck onComplete={handleTestComplete} />;
+  if (showProgress && token) return <ProgressPage token={token} onBack={() => setShowProgress(false)} />;
 
-  // Auth page (shown when user clicks Sign In / Sign Up)
-  if (showAuthPage) {
-    return <AuthPage onAuth={handleAuth} onBack={() => setShowAuthPage(false)} />;
-  }
-
-  // Step 1: Level check (available without auth)
-  if (!hasCompletedTest) {
-    return <LevelCheck onComplete={handleTestComplete} />;
-  }
-
-  // Step 2: Progress page (requires auth)
-  if (showProgress && token) {
-    return <ProgressPage token={token} onBack={() => setShowProgress(false)} />;
-  }
-
-  // Step 4: Main app
   return (
     <div className="min-h-screen relative overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30">
-      {/* Background Lighting */}
       <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-brand-600/10 blur-[150px] pointer-events-none" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
@@ -846,10 +624,8 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2">
               {token && (
-                <button
-                  onClick={() => setShowProgress(true)}
-                  className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all"
-                >
+                <button onClick={() => setShowProgress(true)}
+                  className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all">
                   📊 Progress
                 </button>
               )}
@@ -861,25 +637,19 @@ export default function App() {
                   <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                     {user.name}
                   </span>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all"
-                  >
+                  <button onClick={handleLogout}
+                    className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all">
                     Logout
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => setShowAuthPage(true)}
-                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500/20 to-blue-500/20 border border-brand-500/30 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:from-brand-500/30 hover:to-blue-500/30 transition-all"
-                >
+                <button onClick={() => setShowAuthPage(true)}
+                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500/20 to-blue-500/20 border border-brand-500/30 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:from-brand-500/30 hover:to-blue-500/30 transition-all">
                   Sign In / Sign Up
                 </button>
               )}
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-              >
+              <button onClick={() => setShowHistory(!showHistory)}
+                className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
                 <History className="w-5 h-5 text-brand-300" />
               </button>
             </div>
@@ -888,219 +658,221 @@ export default function App() {
           {/* Level Selector */}
           <LevelSelector levels={levels} selected={selectedLevel} onSelect={setSelectedLevel} />
 
-          {/* Target Phrase Card */}
-          <section className="w-full text-center space-y-4 mb-8">
-            <div className="flex items-center justify-between w-full max-w-2xl mx-auto px-2">
-              <button
-                onClick={prevPhrase}
-                disabled={step === 'recording' || step === 'analyzing'}
-                className="text-xs uppercase flex items-center gap-1 text-slate-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30"
-              >
-                <ChevronLeft className="w-4 h-4" /> Prev
-              </button>
-              <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
-                <BookOpen className="w-3.5 h-3.5" />
-                Phrase {currentPhraseIndex + 1}/{(phrases?.length || 1)}
-              </h2>
-              <button
-                onClick={nextPhrase}
-                disabled={step === 'recording' || step === 'analyzing'}
-                className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Topic Selector */}
+          {topics.length > 0 && (
+            <TopicSelector topics={topics} selected={selectedTopic} onSelect={setSelectedTopic} />
+          )}
 
-            <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
-              <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
-              <p className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">
-                "{currentPhrase}"
-              </p>
-
-              {step === 'ready' && (
-                <div className="relative z-10 mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <SpeakButton text={currentPhrase} label="Listen First" />
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Visualizer & Controls */}
-          <section className="w-full flex flex-col items-center mb-12 relative max-w-2xl mx-auto">
-            <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onMouseDown={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
-              onMouseUp={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
-              onMouseLeave={() => { if (isRecording) stopRecording(); }}
-              onTouchStart={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
-              onTouchEnd={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
-              onContextMenu={(e) => e.preventDefault()}
-              disabled={step === 'analyzing'}
-              className={`
-                absolute bottom-[-32px] md:bottom-[-40px] z-20 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30
-                ${isRecording
-                  ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]'
-                  : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}
-              `}
-            >
-              {isRecording ? (
-                <Square className="w-8 h-8 md:w-10 md:h-10 fill-current" />
-              ) : (
-                <Mic className="w-8 h-8 md:w-10 md:h-10" />
-              )}
-              {isRecording && (
-                <span className="absolute inset-0 rounded-full border border-red-500/50 animate-ping" />
-              )}
-            </motion.button>
-          </section>
-
-          {/* Mobile Microphone Notice */}
-          <div className="w-full text-center mt-10 mb-2">
-            <p className="text-[11px] text-slate-500/80 px-4 max-w-sm mx-auto uppercase tracking-wider">
-              Для мобильного использования разрешите доступ к микрофону в настройках браузера. Удерживайте кнопку для записи.
-            </p>
+          {/* Practice / Tongue Twisters Tabs */}
+          <div className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2">
+            <button onClick={() => setActiveTab('practice')}
+              className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${
+                activeTab === 'practice'
+                  ? 'bg-brand-500/20 border-brand-500/50 text-brand-300'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+              }`}>
+              🎙 Practice Phrases
+            </button>
+            <button onClick={() => setActiveTab('twisters')}
+              className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${
+                activeTab === 'twisters'
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+              }`}>
+              🌀 Tongue Twisters
+            </button>
           </div>
 
-          {/* ──────── Dynamic Results Area ──────── */}
-          <div className="w-full max-w-2xl mx-auto mt-8 md:mt-12">
-            <AnimatePresence mode="wait">
+          {/* Tongue Twisters Tab */}
+          {activeTab === 'twisters' && (
+            <TongueTwisters level={selectedLevel} />
+          )}
 
-              {/* Step: Analyzing */}
-              {step === 'analyzing' && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  key="analyzing"
-                  className="w-full glass-panel p-8 text-center flex flex-col items-center justify-center space-y-4"
-                >
-                  <div className="relative w-16 h-16 flex items-center justify-center">
-                    <RefreshCw className="w-8 h-8 text-brand-400 animate-spin absolute" />
-                    <div className="w-12 h-12 rounded-full border-t-2 border-r-2 border-brand-500/30 animate-[spin_2s_linear_infinite_reverse]" />
-                  </div>
-                  <p className="text-lg font-medium text-brand-200">Analyzing Your Pronunciation...</p>
-                  <p className="text-sm text-slate-500">Comparing word-by-word accuracy</p>
-                </motion.div>
-              )}
+          {/* Practice Tab */}
+          {activeTab === 'practice' && (
+            <>
+              {/* Target Phrase Card */}
+              <section className="w-full text-center space-y-4 mb-8">
+                <div className="flex items-center justify-between w-full max-w-2xl mx-auto px-2">
+                  <button onClick={prevPhrase} disabled={step === 'recording' || step === 'analyzing'}
+                    className="text-xs uppercase flex items-center gap-1 text-slate-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30">
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    Phrase {currentPhraseIndex + 1}/{(phrases?.length || 1)}
+                  </h2>
+                  <button onClick={nextPhrase} disabled={step === 'recording' || step === 'analyzing'}
+                    className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30">
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
 
-              {/* Step: Results */}
-              {step === 'results' && result && (
-                <motion.div
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key="results"
-                  className="w-full space-y-6"
-                >
-                  {/* Summary */}
-                  <div className="glass-panel p-4 text-center">
-                    <p className="text-sm text-slate-400">{result.summary}</p>
-                    {result.user_text && (
-                      <p className="text-xs text-slate-500 mt-2">
-                        You said: <span className="text-slate-300 italic">"{result.user_text}"</span>
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Score Header */}
-                  <div className={`glass-panel p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border bg-gradient-to-br ${getScoreBg(result.scores.overall)}`}>
-                    <div className="text-center md:text-left">
-                      <h3 className="text-2xl font-bold text-white mb-1">{getScoreLabel(result.scores.overall)}</h3>
-                      <p className="text-slate-400 text-sm">
-                        {result.phonetic_issues.length === 0
-                          ? 'No major pronunciation issues detected.'
-                          : `Found ${result.phonetic_issues.length} pronunciation issue(s) to work on.`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 md:gap-6">
-                      <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.1 }}
-                          className={`text-4xl font-bold ${getScoreColor(result.scores.overall)}`}>
-                          {result.scores.overall}
-                        </motion.div>
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Overall</div>
-                      </div>
-                      <div className="w-px h-12 bg-white/10" />
-                      <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}
-                          className={`text-2xl font-bold ${getScoreColor(result.scores.accuracy)}`}>
-                          {result.scores.accuracy}%
-                        </motion.div>
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Accuracy</div>
-                      </div>
-                      <div className="w-px h-12 bg-white/10" />
-                      <div className="flex flex-col items-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.3 }}
-                          className={`text-2xl font-bold ${getScoreColor(result.scores.completeness)}`}>
-                          {result.scores.completeness}%
-                        </motion.div>
-                        <div className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Complete</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Word-by-Word Breakdown */}
-                  <div className="glass-panel p-5 md:p-6">
-                    <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <BookOpen className="w-4 h-4" /> Word-by-Word Breakdown
-                    </h4>
-                    <WordHighlight analysis={result.word_analysis} />
-                  </div>
-
-                  {/* Phonetic Issues with TTS */}
-                  {result.phonetic_issues.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest px-2 flex items-center gap-2">
-                        <Volume2 className="w-4 h-4" /> Pronunciation Guide — Listen & Practice
-                      </h4>
-                      <p className="text-xs text-slate-500 px-2">
-                        Click "Listen" to hear the correct pronunciation. You can repeat as many times as you need.
-                      </p>
-                      {result.phonetic_issues.map((issue, i) => (
-                        <PhoneticIssueCard key={i} issue={issue} index={i} />
-                      ))}
+                <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
+                  <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+                  <p className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">
+                    "{currentPhrase}"
+                  </p>
+                  {step === 'ready' && (
+                    <div className="relative z-10 mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <SpeakButton text={currentPhrase} label="Listen First" />
                     </div>
                   )}
+                </div>
+              </section>
 
-                  {/* Full Phrase TTS */}
-                  <div className="glass-panel p-5 md:p-6 text-center space-y-4">
-                    <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest flex items-center justify-center gap-2">
-                      <Volume2 className="w-4 h-4" /> Listen to the Full Phrase
-                    </h4>
-                    <p className="text-slate-400 text-sm">
-                      Listen to the correct pronunciation of the full phrase, then try again.
-                    </p>
-                    <div className="flex items-center justify-center gap-3">
-                      <SpeakButton text={currentPhrase} label="Play Full Phrase" />
-                    </div>
-                  </div>
+              {/* Visualizer & Controls */}
+              <section className="w-full flex flex-col items-center mb-12 relative max-w-2xl mx-auto">
+                <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onMouseDown={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
+                  onMouseUp={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
+                  onMouseLeave={() => { if (isRecording) stopRecording(); }}
+                  onTouchStart={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
+                  onTouchEnd={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  disabled={step === 'analyzing'}
+                  className={`
+                    absolute bottom-[-32px] md:bottom-[-40px] z-20 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30
+                    ${isRecording
+                      ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]'
+                      : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}
+                  `}
+                >
+                  {isRecording ? <Square className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Mic className="w-8 h-8 md:w-10 md:h-10" />}
+                  {isRecording && <span className="absolute inset-0 rounded-full border border-red-500/50 animate-ping" />}
+                </motion.button>
+              </section>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-center gap-4 pt-2 pb-8">
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={tryAgain}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 hover:bg-brand-500/20 transition-all"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span className="font-semibold text-sm">Try Again</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={nextPhrase}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500 text-slate-950 hover:bg-brand-400 transition-all font-semibold text-sm"
-                    >
-                      Next Phrase <ArrowRight className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+              {/* Mobile Microphone Notice */}
+              <div className="w-full text-center mt-10 mb-2">
+                <p className="text-[11px] text-slate-500/80 px-4 max-w-sm mx-auto uppercase tracking-wider">
+                  Для мобильного использования разрешите доступ к микрофону в настройках браузера. Удерживайте кнопку для записи.
+                </p>
+              </div>
+
+              {/* ──────── Results Area ──────── */}
+              <div className="w-full max-w-2xl mx-auto mt-8 md:mt-12">
+                <AnimatePresence mode="wait">
+                  {step === 'analyzing' && (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} key="analyzing"
+                      className="w-full glass-panel p-8 text-center flex flex-col items-center justify-center space-y-4">
+                      <div className="relative w-16 h-16 flex items-center justify-center">
+                        <RefreshCw className="w-8 h-8 text-brand-400 animate-spin absolute" />
+                        <div className="w-12 h-12 rounded-full border-t-2 border-r-2 border-brand-500/30 animate-[spin_2s_linear_infinite_reverse]" />
+                      </div>
+                      <p className="text-lg font-medium text-brand-200">Analyzing Your Pronunciation...</p>
+                      <p className="text-sm text-slate-500">Comparing word-by-word accuracy</p>
+                    </motion.div>
+                  )}
+
+                  {step === 'results' && result && (
+                    <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} key="results" className="w-full space-y-6">
+                      {/* Summary */}
+                      <div className="glass-panel p-4 text-center">
+                        <p className="text-sm text-slate-400">{result.summary}</p>
+                        {result.user_text && (
+                          <p className="text-xs text-slate-500 mt-2">You said: <span className="text-slate-300 italic">"{result.user_text}"</span></p>
+                        )}
+                      </div>
+
+                      {/* Score Header — 6 metrics */}
+                      <div className={`glass-panel p-6 md:p-8 border bg-gradient-to-br ${getScoreBg(result.scores.overall)}`}>
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                          <div className="text-center md:text-left">
+                            <h3 className="text-2xl font-bold text-white mb-1">{getScoreLabel(result.scores.overall)}</h3>
+                            <p className="text-slate-400 text-sm">
+                              {result.phonetic_issues.length === 0
+                                ? 'No major pronunciation issues detected.'
+                                : `Found ${result.phonetic_issues.length} pronunciation issue(s) to work on.`}
+                            </p>
+                          </div>
+                        </div>
+                        {/* 6 metrics grid */}
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mt-6">
+                          {[
+                            { label: 'Total Score', value: result.scores.overall, suffix: '' },
+                            { label: 'Accuracy', value: result.scores.accuracy, suffix: '%' },
+                            { label: 'Fluency', value: result.scores.fluency, suffix: '%' },
+                            { label: 'Complete', value: result.scores.completeness, suffix: '%' },
+                            { label: 'Intonation', value: result.scores.intonation ?? 0, suffix: '%' },
+                            { label: 'Stress', value: result.scores.stress ?? 0, suffix: '%' },
+                          ].map((m, idx) => (
+                            <div key={m.label} className="flex flex-col items-center">
+                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.1 + idx * 0.05 }}
+                                className={`text-2xl md:text-3xl font-bold ${idx === 0 ? getScoreColor(m.value) : getScoreColor(m.value)}`}>
+                                {m.value}{m.suffix}
+                              </motion.div>
+                              <div className="text-[9px] md:text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">{m.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Word-by-Word Breakdown */}
+                      <div className="glass-panel p-5 md:p-6">
+                        <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <BookOpen className="w-4 h-4" /> Word-by-Word Breakdown
+                        </h4>
+                        <WordHighlight analysis={result.word_analysis} />
+                      </div>
+
+                      {/* Phonetic Issues */}
+                      {result.phonetic_issues.length > 0 && (
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest px-2 flex items-center gap-2">
+                            <Volume2 className="w-4 h-4" /> Pronunciation Guide — Listen & Practice
+                          </h4>
+                          {result.phonetic_issues.map((issue, i) => (
+                            <PhoneticIssueCard key={i} issue={issue} index={i} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Stress Issues (NEW) */}
+                      {result.stress_issues && result.stress_issues.length > 0 && (
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-violet-300 uppercase tracking-widest px-2 flex items-center gap-2">
+                            💬 Stress & Emphasis Guide
+                          </h4>
+                          <p className="text-xs text-slate-500 px-2">
+                            These words have tricky stress patterns. Listen carefully to where the emphasis falls.
+                          </p>
+                          {result.stress_issues.map((si, i) => (
+                            <StressIssueCard key={i} issue={si} index={i} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Full Phrase TTS */}
+                      <div className="glass-panel p-5 md:p-6 text-center space-y-4">
+                        <h4 className="text-sm font-semibold text-brand-300 uppercase tracking-widest flex items-center justify-center gap-2">
+                          <Volume2 className="w-4 h-4" /> Listen to the Full Phrase
+                        </h4>
+                        <p className="text-slate-400 text-sm">Listen to the correct pronunciation, then try again.</p>
+                        <div className="flex items-center justify-center gap-3">
+                          <SpeakButton text={currentPhrase} label="Play Full Phrase" />
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-center gap-4 pt-2 pb-8">
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={tryAgain}
+                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 hover:bg-brand-500/20 transition-all">
+                          <RotateCcw className="w-4 h-4" /> <span className="font-semibold text-sm">Try Again</span>
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={nextPhrase}
+                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500 text-slate-950 hover:bg-brand-400 transition-all font-semibold text-sm">
+                          Next Phrase <ArrowRight className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ──────── Sidebar History ──────── */}
@@ -1134,11 +906,8 @@ export default function App() {
               <AnimatePresence>
                 {history.map((item, idx) => (
                   <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ delay: idx * 0.03 }}
-                    key={item.id}
+                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, height: 0 }}
+                    transition={{ delay: idx * 0.03 }} key={item.id}
                     className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-brand-500/30 transition-all cursor-pointer group"
                   >
                     <div className="flex justify-between items-center mb-2">
@@ -1146,9 +915,7 @@ export default function App() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 font-bold">{item.level}</span>
                         <span className="text-xs text-slate-400">{item.date}</span>
                       </div>
-                      <span className={`text-sm font-bold ${getScoreColor(item.score)}`}>
-                        {item.score}
-                      </span>
+                      <span className={`text-sm font-bold ${getScoreColor(item.score)}`}>{item.score}</span>
                     </div>
                     <p className="text-sm text-slate-300 line-clamp-2 italic">"{item.phrase}"</p>
                     {item.issueCount > 0 && (

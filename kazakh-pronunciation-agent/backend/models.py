@@ -23,10 +23,13 @@ class PronunciationResult(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     phrase = Column(String, nullable=False)
     level = Column(String, nullable=False)
+    topic = Column(String, default="")
     overall_score = Column(Float, nullable=False)
     accuracy = Column(Float, default=0)
     fluency = Column(Float, default=0)
     completeness = Column(Float, default=0)
+    intonation = Column(Float, default=0)
+    stress = Column(Float, default=0)
     issue_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
