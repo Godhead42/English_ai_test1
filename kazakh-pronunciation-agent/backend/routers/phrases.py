@@ -36,17 +36,18 @@ def get_phrases(level: str = "A1", topic: str = ""):
     if level not in VALID_LEVELS:
         return JSONResponse(status_code=400, content={"error": f"Invalid level. Choose from: {', '.join(VALID_LEVELS)}"})
 
-    # If topic is specified, return all 50 phrases for that topic
+    # If topic is specified, return 50 phrases for that topic+level
     if topic:
-        phrases = PHRASES_BY_TOPIC.get(topic)
-        if phrases is None:
+        topic_data = PHRASES_BY_TOPIC.get(topic)
+        if not topic_data:
             return JSONResponse(status_code=400, content={"error": f"Unknown topic: {topic}"})
+        phrases = topic_data.get(level, [])
         return {"level": level, "topic": topic, "phrases": phrases}
 
-    # If no topic, return all phrases across all topics
+    # If no topic, return all phrases for that level across all topics
     all_phrases = []
-    for tid, phrase_list in PHRASES_BY_TOPIC.items():
-        all_phrases.extend(phrase_list)
+    for tid, levels_dict in PHRASES_BY_TOPIC.items():
+        all_phrases.extend(levels_dict.get(level, []))
     return {"level": level, "topic": "", "phrases": all_phrases}
 
 
