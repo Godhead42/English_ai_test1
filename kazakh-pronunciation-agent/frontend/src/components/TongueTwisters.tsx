@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Volume2, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import API_BASE_URL from '../apiConfig';
-import { t, Lang } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 interface Props {
   level: string;

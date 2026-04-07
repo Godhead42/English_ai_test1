@@ -15,7 +15,7 @@ import API_BASE_URL from './apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CEFRLevel, Topic, AnalysisResult, HistoryItem, WordAnalysis, PhoneticIssue, StressIssue } from './types';
 import { getScoreColor, getScoreBg } from './data/constants';
-import { t, getScoreLabelLocalized, Lang } from './i18n';
+import { t, getScoreLabelLocalized, type Lang } from './i18n';
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 const API_BASE = API_BASE_URL;

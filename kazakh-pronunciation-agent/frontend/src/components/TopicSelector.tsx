@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import type { Topic } from '../types';
-import { t, Lang } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 interface Props {
   topics: Topic[];

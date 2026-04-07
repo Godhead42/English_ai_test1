@@ -5,7 +5,7 @@ import {
   Activity, Zap, Award, Calendar
 } from 'lucide-react';
 import API_BASE_URL from '../apiConfig';
-import { t, Lang } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 interface ProgressResult {
   id: number;

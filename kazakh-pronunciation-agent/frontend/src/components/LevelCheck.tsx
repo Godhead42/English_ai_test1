@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GraduationCap, ArrowRight, BrainCircuit, Sparkles, CheckCircle2 } from 'lucide-react';
-import { t, Lang } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 interface Question {
   text: { ru: string; en: string };

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { GraduationCap, Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import API_BASE_URL from '../apiConfig';
-import { t, Lang } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 interface AuthPageProps {
   onAuth: (token: string, user: { id: number; email: string; name: string; level: string }) => void;
