@@ -30,6 +30,8 @@ app.include_router(progress.router)
 
 
 # ── Startup ──────────────────────────────────────
+from sqlalchemy import text
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
@@ -37,6 +39,13 @@ def on_startup():
 
     db = SessionLocal()
     try:
+        # Seamless schema migration for prod: add is_admin if users table already existed
+        try:
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
         admin = db.query(User).filter(User.email == "admin@kstu.kz").first()
         if not admin:
             admin = User(

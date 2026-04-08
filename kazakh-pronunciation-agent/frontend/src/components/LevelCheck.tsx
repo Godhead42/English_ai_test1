@@ -10,11 +10,11 @@ interface Question {
 
 const QUESTIONS: Question[] = [
   {
-    text: { ru: "Можете ли вы представиться на английском?", en: "Can you introduce yourself in English?" },
+    text: { ru: "Can you introduce yourself in English?", en: "Can you introduce yourself in English?" },
     options: [
-      { text: { ru: "Только имя и откуда я.", en: "Only my name and where I am from." }, points: 1 },
-      { text: { ru: "Могу рассказать о семье, хобби и распорядке дня.", en: "I can talk about my family, hobbies, and simple daily routines." }, points: 2 },
-      { text: { ru: "Могу чётко выражать мнение и обсуждать сложные темы.", en: "I can express my opinions clearly and discuss complex topics." }, points: 3 },
+      { text: { ru: "Only my name and where I am from.", en: "Only my name and where I am from." }, points: 1 },
+      { text: { ru: "I can talk about my family, hobbies, and simple daily routines.", en: "I can talk about my family, hobbies, and simple daily routines." }, points: 2 },
+      { text: { ru: "I can express my opinions clearly and discuss complex topics.", en: "I can express my opinions clearly and discuss complex topics." }, points: 3 },
     ]
   },
   {
@@ -26,15 +26,15 @@ const QUESTIONS: Question[] = [
     ]
   },
   {
-    text: { ru: "Как часто вы смотрите фильмы или читаете новости на английском?", en: "How often do you watch movies or read news in English?" },
+    text: { ru: "How often do you watch movies or read news in English?", en: "How often do you watch movies or read news in English?" },
     options: [
-      { text: { ru: "Редко, слишком сложно понять.", en: "Rarely, it's too difficult to understand." }, points: 1 },
-      { text: { ru: "Иногда, использую субтитры или словарь.", en: "Sometimes, I use subtitles or a dictionary." }, points: 2 },
-      { text: { ru: "Часто, понимаю без проблем.", en: "Often, I consume English media without any problems." }, points: 3 },
+      { text: { ru: "Rarely, it's too difficult to understand.", en: "Rarely, it's too difficult to understand." }, points: 1 },
+      { text: { ru: "Sometimes, I use subtitles or a dictionary.", en: "Sometimes, I use subtitles or a dictionary." }, points: 2 },
+      { text: { ru: "Often, I consume English media without any problems.", en: "Often, I consume English media without any problems." }, points: 3 },
     ]
   },
   {
-    text: { ru: "Выберите правильное предложение:", en: "Choose the correct sentence:" },
+    text: { ru: "Choose the correct sentence:", en: "Choose the correct sentence:" },
     options: [
       { text: { ru: "I have lived here since 5 years.", en: "I have lived here since 5 years." }, points: 1 },
       { text: { ru: "I am living here for 5 years.", en: "I am living here for 5 years." }, points: 2 },
