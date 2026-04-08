@@ -10,6 +10,7 @@ import LevelCheck from './components/LevelCheck';
 import AuthPage from './components/AuthPage';
 import ProgressPage from './components/ProgressPage';
 import TopicSelector from './components/TopicSelector';
+import TongueTwisters from './components/TongueTwisters';
 import API_BASE_URL from './apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CEFRLevel, Topic, AnalysisResult, HistoryItem, WordAnalysis, PhoneticIssue, StressIssue } from './types';
@@ -188,12 +189,8 @@ export default function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState('');
   const [phrases, setPhrases] = useState<string[]>([]);
-  const [twisters, setTwisters] = useState<string[]>([]);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'practice' | 'twisters'>('practice');
-
-  const currentPhraseList = activeTab === 'twisters' ? twisters : phrases;
-  const currentPhrase = currentPhraseList[currentPhraseIndex % Math.max(1, currentPhraseList.length)] || "";
 
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
   const [user, setUser] = useState<{ id: number; email: string; name: string; level: string } | null>(() => {
@@ -245,20 +242,9 @@ export default function App() {
     if (selectedTopic) params.set('topic', selectedTopic);
     fetch(`${API_BASE}/api/phrases?${params}`).then(r => r.json()).then(d => { setPhrases(d?.phrases || []); setCurrentPhraseIndex(0); setResult(null); setStep('ready'); })
       .catch(() => setPhrases(["Hello, my name is Anna.", "The weather is nice today.", "Can you help me please?"]));
-      
-    fetch(`${API_BASE}/api/tongue-twisters?level=${selectedLevel}`).then(r => r.json()).then(d => {
-      setTwisters(d?.tongue_twisters || []);
-    }).catch(() => setTwisters(["She sells seashells by the seashore."]));
   }, [selectedLevel, selectedTopic]);
 
   useEffect(() => { localStorage.setItem("pronunciation_history", JSON.stringify(history)); }, [history]);
-  
-  // Whenever tab changes, reset index and state
-  useEffect(() => {
-    setCurrentPhraseIndex(0);
-    setResult(null);
-    setStep('ready');
-  }, [activeTab]);
 
   // ─── Recording ───────────────────────────────
   const startRecording = async () => {
@@ -284,7 +270,7 @@ export default function App() {
   // ─── Analysis ────────────────────────────────
   const submitAnalysis = async (userText: string, audioBlob?: Blob) => {
     setStep('analyzing');
-    const targetText = currentPhrase;
+    const targetText = phrases[currentPhraseIndex] || "";
     if (!userText.trim() && !audioBlob) {
       const tw = targetText.toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/);
       setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: tw.map(w => ({ word: w, status: 'missing' })), extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: '', summary: t('result.no_speech', lang) });
@@ -309,10 +295,11 @@ export default function App() {
     }
   };
 
-  const nextPhrase = () => { setCurrentPhraseIndex(p => p + 1); setResult(null); setStep('ready'); };
-  const prevPhrase = () => { setCurrentPhraseIndex(p => Math.max(0, p - 1)); setResult(null); setStep('ready'); };
+  const nextPhrase = () => { setCurrentPhraseIndex(p => (p + 1) % phrases.length); setResult(null); setStep('ready'); };
+  const prevPhrase = () => { setCurrentPhraseIndex(p => (p - 1 + phrases.length) % phrases.length); setResult(null); setStep('ready'); };
   const tryAgain = () => { setResult(null); setStep('ready'); };
   const clearHistory = () => { setHistory([]); localStorage.removeItem("pronunciation_history"); };
+  const currentPhrase = phrases?.[currentPhraseIndex] || "";
 
   // ── Current topic name for display ──
   const currentTopicName = topics.find(tp => tp.id === selectedTopic)?.name || '';
@@ -375,24 +362,27 @@ export default function App() {
             <button onClick={() => setActiveTab('twisters')} className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${activeTab === 'twisters' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}>{t('tab.twisters', lang)}</button>
           </div>
 
-          <section className="w-full text-center space-y-4 mb-8">
-            <div className="flex items-center justify-between w-full max-w-2xl mx-auto px-2">
-              <button onClick={prevPhrase} disabled={step === 'recording' || step === 'analyzing'} className="text-xs uppercase flex items-center gap-1 text-slate-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30"><ChevronLeft className="w-4 h-4" /> {t('phrase.prev', lang)}</button>
-              <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
-                <BookOpen className="w-3.5 h-3.5" />
-                {t('phrase.counter', lang)} {(currentPhraseIndex % Math.max(1, currentPhraseList.length)) + 1}/{currentPhraseList?.length || 1}
-                {currentTopicName && activeTab === 'practice' && <span className="text-brand-400/60 ml-1">· {currentTopicName}</span>}
-                {activeTab === 'twisters' && <span className="text-amber-400/60 ml-1">· Twister</span>}
-              </h2>
-              <button onClick={nextPhrase} disabled={step === 'recording' || step === 'analyzing'} className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30">{t('phrase.next', lang)} <ChevronRight className="w-4 h-4" /></button>
-            </div>
+          {activeTab === 'twisters' && <TongueTwisters level={selectedLevel} lang={lang} token={token} />}
+
+          {activeTab === 'practice' && (
+            <>
+              <section className="w-full text-center space-y-4 mb-8">
+                <div className="flex items-center justify-between w-full max-w-2xl mx-auto px-2">
+                  <button onClick={prevPhrase} disabled={step === 'recording' || step === 'analyzing'} className="text-xs uppercase flex items-center gap-1 text-slate-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30"><ChevronLeft className="w-4 h-4" /> {t('phrase.prev', lang)}</button>
+                  <h2 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    {t('phrase.counter', lang)} {currentPhraseIndex + 1}/{phrases?.length || 1}
+                    {currentTopicName && <span className="text-brand-400/60 ml-1">· {currentTopicName}</span>}
+                  </h2>
+                  <button onClick={nextPhrase} disabled={step === 'recording' || step === 'analyzing'} className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30">{t('phrase.next', lang)} <ChevronRight className="w-4 h-4" /></button>
+                </div>
 
                 <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
                   <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
                   <p className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">"{currentPhrase}"</p>
                   {step === 'ready' && (
                     <div className="relative z-10 mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <SpeakButton text={currentPhrase} label={t('phrase.listen', lang)} slow={activeTab === 'twisters'} />
+                      <SpeakButton text={currentPhrase} label={t('phrase.listen', lang)} />
                     </div>
                   )}
                 </div>
@@ -495,6 +485,8 @@ export default function App() {
                   )}
                 </AnimatePresence>
               </div>
+            </>
+          )}
         </div>
 
         {/* Sidebar History */}

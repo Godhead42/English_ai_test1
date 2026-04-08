@@ -3,20 +3,10 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-import os
-import json
-from data.phrases import TOPICS
+from data.phrases import TOPICS, PHRASES_BY_TOPIC
 from data.tongue_twisters import TONGUE_TWISTERS_BY_LEVEL
 
 router = APIRouter()
-
-GENERATED_PHRASES = {}
-try:
-    json_path = os.path.join(os.path.dirname(__file__), "..", "data", "phrases_generated.json")
-    with open(json_path, "r", encoding="utf-8") as f:
-        GENERATED_PHRASES = json.load(f)
-except Exception as e:
-    print(f"Warning: Could not load generated phrases: {e}")
 
 LEVELS = [
     {"code": "A1", "name": "Beginner",            "description": "Simple everyday phrases and greetings"},
@@ -48,7 +38,7 @@ def get_phrases(level: str = "A1", topic: str = ""):
 
     # If topic is specified, return phrases for that topic+level
     if topic:
-        topic_data = GENERATED_PHRASES.get(topic)
+        topic_data = PHRASES_BY_TOPIC.get(topic)
         if not topic_data:
             return JSONResponse(status_code=400, content={"error": f"Unknown topic: {topic}"})
         phrases = topic_data.get(level, [])
@@ -56,7 +46,7 @@ def get_phrases(level: str = "A1", topic: str = ""):
 
     # If no topic, return all phrases for that level across all topics
     all_phrases = []
-    for tid, levels_dict in GENERATED_PHRASES.items():
+    for tid, levels_dict in PHRASES_BY_TOPIC.items():
         all_phrases.extend(levels_dict.get(level, []))
     return {"level": level, "topic": "", "phrases": all_phrases}
 
