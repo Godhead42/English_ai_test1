@@ -316,40 +316,45 @@ export default function App() {
       <div className="fixed top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-brand-600/10 blur-[150px] pointer-events-none" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
-      <main className="relative z-10 container mx-auto px-4 py-8 max-w-5xl flex flex-col md:flex-row gap-8 min-h-screen">
+      <main className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl flex flex-col md:flex-row gap-4 md:gap-8 min-h-screen">
         <div className="flex-1 flex flex-col items-center">
 
           {/* Header */}
-          <header className="w-full mb-6 flex justify-between items-center glass-panel px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-blue-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
-                <Activity className="text-white w-5 h-5" />
+          <header className="w-full mb-4 sm:mb-6 glass-panel px-3 sm:px-6 py-3 sm:py-4">
+            {/* Top row: logo + main actions */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-brand-400 to-blue-500 flex items-center justify-center shadow-lg shadow-brand-500/20 shrink-0">
+                  <Activity className="text-white w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-200 to-white truncate">AI English Coach</h1>
+                  <p className="text-[9px] sm:text-xs text-brand-300/70 uppercase tracking-widest font-semibold flex items-center gap-1 sm:gap-2">
+                    {t('app.subtitle', lang)} <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-200 to-white">AI English Coach</h1>
-                <p className="text-xs text-brand-300/70 uppercase tracking-widest font-semibold flex items-center gap-2">
-                  {t('app.subtitle', lang)} <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
-                </p>
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <button onClick={toggleLang} title={lang === 'ru' ? 'Switch to English' : 'Переключить на русский'}
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-1">
+                  <Globe className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  {lang === 'ru' ? 'EN' : 'RU'}
+                </button>
+                <button onClick={() => setShowHistory(!showHistory)} className="md:hidden p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"><History className="w-4 h-4 sm:w-5 sm:h-5 text-brand-300" /></button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Language Toggle */}
-              <button onClick={toggleLang} title={lang === 'ru' ? 'Switch to English' : 'Переключить на русский'}
-                className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5" />
-                {lang === 'ru' ? 'EN' : 'RU'}
-              </button>
-              {token && <button onClick={() => setShowProgress(true)} className="px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all">{t('header.progress', lang)}</button>}
-              <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[10px] font-bold uppercase tracking-widest">{t('header.level', lang)} {selectedLevel}</span>
+            {/* Bottom row: badges & auth (scrollable on mobile) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 overflow-x-auto pb-1 scrollbar-hide">
+              <span className="shrink-0 px-2 sm:px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">{t('header.level', lang)} {selectedLevel}</span>
+              {token && <button onClick={() => setShowProgress(true)} className="shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all">{t('header.progress', lang)}</button>}
               {user ? (
                 <>
-                  <span className="hidden md:inline-flex px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">{user.name}</span>
-                  <button onClick={handleLogout} className="px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all">{t('header.logout', lang)}</button>
+                  <span className="shrink-0 px-2 sm:px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px] sm:max-w-none">{user.name}</span>
+                  <button onClick={handleLogout} className="shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all">{t('header.logout', lang)}</button>
                 </>
               ) : (
-                <button onClick={() => setShowAuthPage(true)} className="px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500/20 to-blue-500/20 border border-brand-500/30 text-brand-300 text-[10px] font-bold uppercase tracking-widest hover:from-brand-500/30 hover:to-blue-500/30 transition-all">{t('header.signin', lang)}</button>
+                <button onClick={() => setShowAuthPage(true)} className="shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-brand-500/20 to-blue-500/20 border border-brand-500/30 text-brand-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:from-brand-500/30 hover:to-blue-500/30 transition-all">{t('header.signin', lang)}</button>
               )}
-              <button onClick={() => setShowHistory(!showHistory)} className="md:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"><History className="w-5 h-5 text-brand-300" /></button>
             </div>
           </header>
 
@@ -377,18 +382,18 @@ export default function App() {
                   <button onClick={nextPhrase} disabled={step === 'recording' || step === 'analyzing'} className="text-xs uppercase flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors font-bold disabled:opacity-30">{t('phrase.next', lang)} <ChevronRight className="w-4 h-4" /></button>
                 </div>
 
-                <div className="glass-panel p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
+                <div className="glass-panel p-5 sm:p-8 md:p-12 relative overflow-hidden group w-full max-w-2xl mx-auto">
                   <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
-                  <p className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">"{currentPhrase}"</p>
+                  <p className="relative z-10 text-lg sm:text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed tracking-wide text-white drop-shadow-md">"{currentPhrase}"</p>
                   {step === 'ready' && (
-                    <div className="relative z-10 mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <div className="relative z-10 mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                       <SpeakButton text={currentPhrase} label={t('phrase.listen', lang)} />
                     </div>
                   )}
                 </div>
               </section>
 
-              <section className="w-full flex flex-col items-center mb-12 relative max-w-2xl mx-auto">
+              <section className="w-full flex flex-col items-center mb-6 sm:mb-8 max-w-2xl mx-auto">
                 <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onMouseDown={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
@@ -397,14 +402,14 @@ export default function App() {
                   onTouchStart={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
                   onTouchEnd={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
                   onContextMenu={(e) => e.preventDefault()} disabled={step === 'analyzing'}
-                  className={`absolute bottom-[-32px] md:bottom-[-40px] z-20 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30 ${isRecording ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]' : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}`}>
-                  {isRecording ? <Square className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Mic className="w-8 h-8 md:w-10 md:h-10" />}
+                  className={`mt-4 z-20 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30 ${isRecording ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]' : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}`}>
+                  {isRecording ? <Square className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 fill-current" /> : <Mic className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10" />}
                   {isRecording && <span className="absolute inset-0 rounded-full border border-red-500/50 animate-ping" />}
                 </motion.button>
               </section>
 
-              <div className="w-full text-center mt-10 mb-2">
-                <p className="text-[11px] text-slate-500/80 px-4 max-w-sm mx-auto uppercase tracking-wider">{t('mic.notice', lang)}</p>
+              <div className="w-full text-center mb-2">
+                <p className="text-[10px] sm:text-[11px] text-slate-500/80 px-4 max-w-sm mx-auto uppercase tracking-wider">{t('mic.notice', lang)}</p>
               </div>
 
               <div className="w-full max-w-2xl mx-auto mt-8 md:mt-12">
@@ -477,9 +482,9 @@ export default function App() {
                         <div className="flex items-center justify-center gap-3"><SpeakButton text={currentPhrase} label={t('full_phrase.play', lang)} /></div>
                       </div>
 
-                      <div className="flex items-center justify-center gap-4 pt-2 pb-8">
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={tryAgain} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 hover:bg-brand-500/20 transition-all"><RotateCcw className="w-4 h-4" /><span className="font-semibold text-sm">{t('action.try_again', lang)}</span></motion.button>
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={nextPhrase} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500 text-slate-950 hover:bg-brand-400 transition-all font-semibold text-sm">{t('action.next_phrase', lang)} <ArrowRight className="w-4 h-4" /></motion.button>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 pb-8">
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={tryAgain} className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 hover:bg-brand-500/20 transition-all"><RotateCcw className="w-4 h-4" /><span className="font-semibold text-xs sm:text-sm">{t('action.try_again', lang)}</span></motion.button>
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={nextPhrase} className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-brand-500 text-slate-950 hover:bg-brand-400 transition-all font-semibold text-xs sm:text-sm">{t('action.next_phrase', lang)} <ArrowRight className="w-4 h-4" /></motion.button>
                       </div>
                     </motion.div>
                   )}
@@ -489,38 +494,41 @@ export default function App() {
           )}
         </div>
 
+        {/* Sidebar backdrop overlay (mobile only) */}
+        {showHistory && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setShowHistory(false)} />}
+
         {/* Sidebar History */}
-        <div className={`fixed md:relative top-0 right-0 h-full md:h-auto w-[300px] md:w-80 glass-panel border-l border-brand-500/20 p-6 z-50 transition-transform duration-300 ${showHistory ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} bg-slate-950/90 md:bg-transparent backdrop-blur-2xl md:backdrop-blur-none`}>
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-sm uppercase tracking-widest text-brand-300 font-bold flex items-center gap-2"><History className="w-4 h-4" /> {t('history.title', lang)}</h3>
+        <div className={`fixed md:relative top-0 right-0 h-full md:h-auto w-[280px] sm:w-[320px] md:w-80 glass-panel border-l border-brand-500/20 p-4 sm:p-6 z-50 transition-transform duration-300 ${showHistory ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} bg-slate-950/95 md:bg-transparent backdrop-blur-2xl md:backdrop-blur-none`}>
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h3 className="text-xs sm:text-sm uppercase tracking-widest text-brand-300 font-bold flex items-center gap-2"><History className="w-4 h-4" /> {t('history.title', lang)}</h3>
             <div className="flex items-center gap-2">
               {history.length > 0 && <button onClick={clearHistory} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors" title="Clear"><Trash2 className="w-4 h-4" /></button>}
               <button onClick={() => setShowHistory(false)} className="md:hidden p-1.5 text-slate-400"><ChevronRight className="w-5 h-5" /></button>
             </div>
           </div>
-          <div className="flex flex-col gap-3 overflow-y-auto max-h-[80vh] custom-scrollbar pr-2">
+          <div className="flex flex-col gap-3 overflow-y-auto max-h-[75vh] md:max-h-[80vh] custom-scrollbar pr-1 sm:pr-2">
             {history.length === 0 ? (
               <div className="text-center py-10 text-slate-500 text-sm">{t('history.empty', lang)}</div>
             ) : (
               <AnimatePresence>
                 {history.map((item, idx) => (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, height: 0 }} transition={{ delay: idx * 0.03 }} key={item.id}
-                    className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-brand-500/30 transition-all cursor-pointer group">
+                    className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-brand-500/30 transition-all cursor-pointer group">
                     <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2"><span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 font-bold">{item.level}</span><span className="text-xs text-slate-400">{item.date}</span></div>
-                      <span className={`text-sm font-bold ${getScoreColor(item.score)}`}>{item.score}</span>
+                      <div className="flex items-center gap-2"><span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 font-bold">{item.level}</span><span className="text-[10px] sm:text-xs text-slate-400">{item.date}</span></div>
+                      <span className={`text-xs sm:text-sm font-bold ${getScoreColor(item.score)}`}>{item.score}</span>
                     </div>
-                    <p className="text-sm text-slate-300 line-clamp-2 italic">"{item.phrase}"</p>
-                    {item.issueCount > 0 && <div className="mt-2 text-[10px] text-amber-400/70">{item.issueCount} {t('history.issues', lang)}</div>}
+                    <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 italic">"{item.phrase}"</p>
+                    {item.issueCount > 0 && <div className="mt-2 text-[9px] sm:text-[10px] text-amber-400/70">{item.issueCount} {t('history.issues', lang)}</div>}
                   </motion.div>
                 ))}
               </AnimatePresence>
             )}
           </div>
           {history.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-brand-500/10">
-              <div className="text-xs text-slate-400 mb-2">{t('history.avg_score', lang)}</div>
-              <div className={`text-3xl font-bold ${getScoreColor(Math.round(history.reduce((a, c) => a + c.score, 0) / history.length))}`}>{Math.round(history.reduce((a, c) => a + c.score, 0) / history.length)}</div>
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-brand-500/10">
+              <div className="text-[10px] sm:text-xs text-slate-400 mb-2">{t('history.avg_score', lang)}</div>
+              <div className={`text-2xl sm:text-3xl font-bold ${getScoreColor(Math.round(history.reduce((a, c) => a + c.score, 0) / history.length))}`}>{Math.round(history.reduce((a, c) => a + c.score, 0) / history.length)}</div>
             </div>
           )}
         </div>

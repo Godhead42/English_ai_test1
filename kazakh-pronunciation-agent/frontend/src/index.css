@@ -17,9 +17,32 @@
 body {
   @apply bg-slate-950 text-slate-100 font-sans antialiased;
   min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport height for mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Glassmorphism utility */
 .glass-panel {
   @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for history panel */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.2);
+  border-radius: 999px;
 }
