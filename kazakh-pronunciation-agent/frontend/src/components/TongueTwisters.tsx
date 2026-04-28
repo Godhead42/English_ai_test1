@@ -129,7 +129,7 @@ export default function TongueTwisters({ level, lang, token }: Props) {
         }).catch(() => {});
       }
     } catch (err: any) {
-      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: lang === 'ru' ? 'Ошибка сервера при анализе аудио. Пожалуйста, попробуйте еще раз.' : 'Server error during audio analysis. Please try again.' });
+      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: lang === 'ru' ? `Ошибка сервера. Но мы вас услышали: "${userText}". Попробуйте еще раз.` : `Server error. But we heard you: "${userText}". Please try again.` });
       setStep('results');
     }
   };

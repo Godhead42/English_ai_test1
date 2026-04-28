@@ -1,6 +1,7 @@
 """Pronunciation analysis router — /api/analyze (Whisper + GPT-4o-mini)."""
 
 import json
+from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 
@@ -86,20 +87,22 @@ async def analyze_with_gpt(target_text: str, spoken_text: str) -> dict:
 async def analyze_pronunciation(
     target_text: str = Form(...),
     user_text: str = Form(""),
-    audio_file: UploadFile = File(None),
+    audio_file: Optional[UploadFile] = File(None),
 ):
     # Step 1: Get spoken text (prefer Whisper transcription from audio)
     spoken_text = user_text.strip()
 
     if audio_file:
-        file_bytes = await audio_file.read()
-        if file_bytes:
-            try:
+        try:
+            file_bytes = await audio_file.read()
+            # Protect against empty/corrupt audio blobs (< 100 bytes)
+            if len(file_bytes) > 100:
                 whisper_text = await transcribe_audio(file_bytes, audio_file.filename or "recording.webm")
                 if whisper_text:
                     spoken_text = whisper_text
-            except Exception as e:
-                print(f"Whisper fallback triggered due to error: {e}")
+        except Exception as e:
+            print(f"Whisper fallback triggered due to error: {e}")
+            # spoken_text remains equal to user_text from browser STT
 
     # Step 2: Handle no speech
     if not spoken_text:
