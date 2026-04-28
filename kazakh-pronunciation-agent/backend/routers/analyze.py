@@ -85,10 +85,14 @@ async def analyze_with_gpt(target_text: str, spoken_text: str) -> dict:
 
 @router.post("/api/analyze")
 async def analyze_pronunciation(
-    target_text: str = Form(...),
+    target_text: str = Form(""),
     user_text: str = Form(""),
     audio_file: Optional[UploadFile] = File(None),
 ):
+    # If frontend sent empty target_text, use user_text as fallback
+    if not target_text.strip():
+        target_text = user_text.strip() or "empty"
+
     # Step 1: Get spoken text (prefer Whisper transcription from audio)
     spoken_text = user_text.strip()
 

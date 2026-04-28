@@ -109,7 +109,11 @@ export default function TongueTwisters({ level, lang, token }: Props) {
 
   const submitAnalysis = async (userText: string, audioBlob?: Blob) => {
     setStep('analyzing');
-    const targetText = twisters[currentIdx] || '';
+    // Guarantee targetText is always a non-empty string
+    const currentTwister = twisters[currentIdx];
+    const targetText = typeof currentTwister === 'string'
+      ? currentTwister
+      : (currentTwister as any)?.text || (currentTwister as any)?.phrase || 'Empty target';
     try {
       const fd = new FormData();
       fd.append('target_text', targetText);
