@@ -94,9 +94,12 @@ async def analyze_pronunciation(
     if audio_file:
         file_bytes = await audio_file.read()
         if file_bytes:
-            whisper_text = await transcribe_audio(file_bytes, audio_file.filename or "recording.webm")
-            if whisper_text:
-                spoken_text = whisper_text
+            try:
+                whisper_text = await transcribe_audio(file_bytes, audio_file.filename or "recording.webm")
+                if whisper_text:
+                    spoken_text = whisper_text
+            except Exception as e:
+                print(f"Whisper fallback triggered due to error: {e}")
 
     # Step 2: Handle no speech
     if not spoken_text:

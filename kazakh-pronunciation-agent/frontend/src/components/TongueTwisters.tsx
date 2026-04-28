@@ -125,11 +125,11 @@ export default function TongueTwisters({ level, lang, token }: Props) {
         fetch(`${API_BASE_URL}/api/progress`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ phrase: targetText, level, topic: 'tongue_twister', overall_score: data.scores.overall, accuracy: data.scores.accuracy, fluency: data.scores.fluency, completeness: data.scores.completeness, intonation: data.scores.intonation || 0, stress: data.scores.stress || 0, issue_count: data.phonetic_issues.length }),
+          body: JSON.stringify({ phrase: targetText, level, topic: 'tongue_twister', overall_score: data?.scores?.overall || 0, accuracy: data?.scores?.accuracy || 0, fluency: data?.scores?.fluency || 0, completeness: data?.scores?.completeness || 0, intonation: data?.scores?.intonation || 0, stress: data?.scores?.stress || 0, issue_count: data?.phonetic_issues?.length || 0 }),
         }).catch(() => {});
       }
-    } catch {
-      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: t('result.no_speech', lang) });
+    } catch (err: any) {
+      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: lang === 'ru' ? 'Ошибка сервера при анализе аудио. Пожалуйста, попробуйте еще раз.' : 'Server error during audio analysis. Please try again.' });
       setStep('results');
     }
   };
