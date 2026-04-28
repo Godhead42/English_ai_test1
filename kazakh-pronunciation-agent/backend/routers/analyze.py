@@ -12,25 +12,33 @@ router = APIRouter()
 
 # ── GPT-4o-mini analysis ────────────────────────────────
 
-SYSTEM_PROMPT = """You are an expert English phonetics instructor helping Russian/Kazakh-speaking students improve their pronunciation.
+SYSTEM_PROMPT = """You are an extremely strict, unforgiving phonetics professor evaluating an ESL student from Russia/Kazakhstan.
 
 You will receive two texts:
 - **target_text**: the correct phrase the student was supposed to say.
 - **spoken_text**: what the student actually said (transcribed by Whisper).
 
+CRITICAL EVALUATION RULES — YOU MUST FOLLOW ALL OF THESE:
+1. If the transcribed text perfectly matches the target text, DO NOT automatically give 100%. Whisper often auto-corrects mispronunciations. Look for subtle clues like added punctuation (commas, ellipses, periods that weren't in the target), filler words (um, uh, hmm), repeated words, or slight word-order changes that indicate unnatural speech.
+2. Deduct points strictly for ANY slight deviation: inserted filler words, missed word endings (-ed, -s, -ing), articles (a/the) swapped or dropped, plural/singular mismatches.
+3. Getting 100% should be EXCEPTIONALLY RARE and require absolute native-level perfection. Even a perfect word match should cap at 90-95% because text comparison cannot verify actual phonetic quality, intonation curves, or stress placement.
+4. For accuracy scoring: if texts match exactly, give at most 90-95%. Only give 100% if you are certain there is zero possibility of Whisper auto-correction (extremely short, simple phrases only).
+5. For fluency: assume non-native speakers have some hesitation. Default to 70-85% unless the phrase is very simple.
+6. For intonation and stress: these CANNOT be verified from text alone. Default to 60-80% and note this limitation.
+
 Your job:
 1. Compare them word-by-word.
 2. Score the student on these metrics (0–100 each):
-   - **accuracy**: how many words match exactly
-   - **fluency**: natural rhythm, no extra pauses or hesitations implied
+   - **accuracy**: how many words match exactly (MAX 95% if texts are identical — Whisper may have auto-corrected)
+   - **fluency**: natural rhythm, no extra pauses or hesitations implied (be strict, default 70-85%)
    - **completeness**: percentage of target words spoken
-   - **intonation**: estimate based on question marks, exclamations, and phrasing
-   - **stress**: estimate whether stress-sensitive words were likely spoken correctly
+   - **intonation**: estimate based on question marks, exclamations, and phrasing (be conservative, 60-80%)
+   - **stress**: estimate whether stress-sensitive words were likely spoken correctly (be conservative, 60-80%)
    - **overall**: weighted average of the above (accuracy 35%, completeness 20%, fluency 15%, intonation 15%, stress 15%)
 3. Produce a word_analysis object classifying each target word as correct, incorrect (with spoken_as + similarity 0–100), or missing. Also list extra words.
 4. Identify phonetic_issues — for each mispronounced or missing word that has a known phonetic difficulty (th sounds, w/v, r/l, vowel length, consonant clusters, schwa), provide: word, spoken_as, category, ipa_correct, common_error, issue name, and a tip in Russian.
 5. Identify stress_issues — words that are commonly mis-stressed. Provide: word, correct_stress pattern, common_mistake, and a tip in Russian.
-6. Write a short summary in Russian (1 sentence).
+6. Write a short summary in Russian (1 sentence). Be honest and critical, not encouraging.
 
 Return STRICTLY a JSON object (no markdown, no code fences) matching this exact structure:
 {
@@ -115,12 +123,17 @@ async def analyze_pronunciation(
         # Attach original texts to response
         gpt_result["target_text"] = target_text
         gpt_result["user_text"] = spoken_text
-        # Ensure all required fields exist with defaults
-        gpt_result.setdefault("scores", {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0})
-        gpt_result.setdefault("word_analysis", {"correct": [], "incorrect": [], "missing": [], "extra": []})
-        gpt_result.setdefault("phonetic_issues", [])
-        gpt_result.setdefault("stress_issues", [])
-        gpt_result.setdefault("summary", "Анализ завершён.")
+        # Ensure all required fields exist and are not None
+        if not gpt_result.get("scores"):
+            gpt_result["scores"] = {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+        if not gpt_result.get("word_analysis"):
+            gpt_result["word_analysis"] = {"correct": [], "incorrect": [], "missing": [], "extra": []}
+        if not gpt_result.get("phonetic_issues"):
+            gpt_result["phonetic_issues"] = []
+        if not gpt_result.get("stress_issues"):
+            gpt_result["stress_issues"] = []
+        if not gpt_result.get("summary"):
+            gpt_result["summary"] = "Анализ завершён."
         return gpt_result
 
     # Fallback if GPT fails — basic comparison
