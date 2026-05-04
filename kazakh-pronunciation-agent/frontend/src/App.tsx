@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Mic, Square, Volume2, RefreshCw, Activity, ChevronRight, ChevronLeft,
   History, Trash2, BookOpen, CheckCircle2, XCircle, AlertTriangle,
-  Play, RotateCcw, ArrowRight, Sparkles, GraduationCap, Globe
+  Play, RotateCcw, ArrowRight, Sparkles, GraduationCap, Globe, Shield
 } from 'lucide-react';
 import AudioVisualizer from './components/AudioVisualizer';
 import ChatBot from './components/ChatBot';
@@ -11,6 +11,7 @@ import AuthPage from './components/AuthPage';
 import ProgressPage from './components/ProgressPage';
 import TopicSelector from './components/TopicSelector';
 import TongueTwisters from './components/TongueTwisters';
+import AdminDashboard from './components/AdminDashboard';
 import API_BASE_URL from './apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CEFRLevel, Topic, AnalysisResult, HistoryItem, WordAnalysis, PhoneticIssue, StressIssue } from './types';
@@ -193,11 +194,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'practice' | 'twisters'>('practice');
 
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
-  const [user, setUser] = useState<{ id: number; email: string; name: string; level: string } | null>(() => {
+  const [user, setUser] = useState<{ id: number; email: string; name: string; level: string; is_admin?: boolean } | null>(() => {
     const s = localStorage.getItem('auth_user'); return s ? JSON.parse(s) : null;
   });
   const [showProgress, setShowProgress] = useState(false);
   const [showAuthPage, setShowAuthPage] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -211,7 +213,7 @@ export default function App() {
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptRef = useRef<string>("");
 
-  const handleAuth = (tok: string, u: { id: number; email: string; name: string; level: string }) => {
+  const handleAuth = (tok: string, u: { id: number; email: string; name: string; level: string; is_admin?: boolean }) => {
     setToken(tok); setUser(u); localStorage.setItem('auth_token', tok); localStorage.setItem('auth_user', JSON.stringify(u)); setShowAuthPage(false);
     if (u.level && u.level !== 'A1') setSelectedLevel(u.level);
   };
@@ -310,6 +312,7 @@ export default function App() {
   if (showAuthPage) return <AuthPage onAuth={handleAuth} onBack={() => setShowAuthPage(false)} lang={lang} />;
   if (!hasCompletedTest) return <LevelCheck onComplete={handleTestComplete} lang={lang} />;
   if (showProgress && token) return <ProgressPage token={token} onBack={() => setShowProgress(false)} lang={lang} />;
+  if (showAdmin && token) return <AdminDashboard token={token} onBack={() => setShowAdmin(false)} lang={lang} />;
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30">
@@ -347,6 +350,7 @@ export default function App() {
             <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 overflow-x-auto pb-1 scrollbar-hide">
               <span className="shrink-0 px-2 sm:px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">{t('header.level', lang)} {selectedLevel}</span>
               {token && <button onClick={() => setShowProgress(true)} className="shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-brand-500/20 transition-all">{t('header.progress', lang)}</button>}
+              {user?.is_admin && <button onClick={() => setShowAdmin(true)} className="shrink-0 flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-violet-500/20 transition-all"><Shield className="w-3 h-3" />{lang === 'ru' ? 'Админ' : 'Admin'}</button>}
               {user ? (
                 <>
                   <span className="shrink-0 px-2 sm:px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest truncate max-w-[100px] sm:max-w-none">{user.name}</span>

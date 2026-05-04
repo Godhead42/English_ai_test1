@@ -26,7 +26,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     token = create_token(user.id)
-    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level}}
+    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level, "is_admin": user.is_admin or False}}
 
 
 @router.post("/api/auth/login")
@@ -36,9 +36,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         return JSONResponse(status_code=401, content={"detail": "Invalid email or password"})
 
     token = create_token(user.id)
-    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level}}
+    return {"token": token, "user": {"id": user.id, "email": user.email, "name": user.name, "level": user.level, "is_admin": user.is_admin or False}}
 
 
 @router.get("/api/auth/me")
 def get_me(user: User = Depends(get_current_user)):
-    return {"id": user.id, "email": user.email, "name": user.name, "level": user.level}
+    return {"id": user.id, "email": user.email, "name": user.name, "level": user.level, "is_admin": user.is_admin or False}

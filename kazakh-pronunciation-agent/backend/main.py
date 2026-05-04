@@ -7,7 +7,7 @@ from database import engine, get_db, Base, SessionLocal
 from models import User
 from auth import hash_password
 
-from routers import analyze, phrases, tts, chat, auth_routes, progress
+from routers import analyze, phrases, tts, chat, auth_routes, progress, admin
 
 app = FastAPI(title="English Pronunciation Agent API")
 
@@ -27,6 +27,7 @@ app.include_router(tts.router)
 app.include_router(chat.router)
 app.include_router(auth_routes.router)
 app.include_router(progress.router)
+app.include_router(admin.router)
 
 
 # ── Startup ──────────────────────────────────────
@@ -53,12 +54,19 @@ def on_startup():
                 name="Admin",
                 hashed_password=hash_password("admin123"),
                 level="C1",
+                is_admin=True,
             )
             db.add(admin)
             db.commit()
             print("✅ Admin user created: admin@kstu.kz / admin123")
         else:
-            print("✅ Admin user already exists")
+            # Ensure existing admin has admin flag
+            if not admin.is_admin:
+                admin.is_admin = True
+                db.commit()
+                print("✅ Admin user promoted to is_admin=True")
+            else:
+                print("✅ Admin user already exists")
     finally:
         db.close()
 
