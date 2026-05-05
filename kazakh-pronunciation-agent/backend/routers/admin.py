@@ -128,14 +128,14 @@ def export_csv(
 
     writer = csv.writer(output)
     writer.writerow([
-        "Имя / Name",
+        "Name",
         "Email",
-        "Уровень / Level",
-        "Кол-во тренировок / Sessions",
-        "Средний балл / Avg Overall",
-        "Средняя точность / Avg Accuracy",
-        "Средняя беглость / Avg Fluency",
-        "Лучший балл / Best Score",
+        "Level",
+        "Sessions",
+        "Avg Overall",
+        "Avg Accuracy",
+        "Avg Fluency",
+        "Best Score",
     ])
 
     for r in rows:
