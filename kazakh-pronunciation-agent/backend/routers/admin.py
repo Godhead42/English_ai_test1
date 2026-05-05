@@ -1,6 +1,9 @@
 """Admin analytics router — /api/admin/* (protected, admin-only)."""
 
+import csv
+import io
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sa_func
 
@@ -74,18 +77,15 @@ def admin_recent_activity(
     }
 
 
-@router.get("/api/admin/stats/students")
-def admin_students(
-    admin: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
-):
-    """Return per-student aggregate stats."""
+def _get_student_rows(db: Session) -> list[dict]:
+    """Shared helper: aggregate stats per student."""
     students = db.query(User).filter(User.is_admin == False).all()
     result = []
     for s in students:
         stats = db.query(
             sa_func.count(PronunciationResult.id),
             sa_func.avg(PronunciationResult.overall_score),
+            sa_func.avg(PronunciationResult.accuracy),
             sa_func.avg(PronunciationResult.fluency),
             sa_func.max(PronunciationResult.overall_score),
         ).filter(PronunciationResult.user_id == s.id).first()
@@ -97,9 +97,67 @@ def admin_students(
             "level": s.level,
             "total_sessions": stats[0] or 0,
             "avg_score": round(stats[1] or 0, 1),
-            "avg_fluency": round(stats[2] or 0, 1),
-            "best_score": round(stats[3] or 0, 1),
+            "avg_accuracy": round(stats[2] or 0, 1),
+            "avg_fluency": round(stats[3] or 0, 1),
+            "best_score": round(stats[4] or 0, 1),
             "joined": s.created_at.isoformat() if s.created_at else None,
         })
+    return result
 
-    return {"students": result}
+
+@router.get("/api/admin/stats/students")
+def admin_students(
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return per-student aggregate stats."""
+    return {"students": _get_student_rows(db)}
+
+
+@router.get("/api/admin/export/csv")
+def export_csv(
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Generate a CSV report of student progress (Excel-friendly with UTF-8 BOM)."""
+    rows = _get_student_rows(db)
+
+    output = io.StringIO()
+    # UTF-8 BOM so Excel opens Cyrillic correctly
+    output.write("\ufeff")
+
+    writer = csv.writer(output)
+    writer.writerow([
+        "Имя / Name",
+        "Email",
+        "Уровень / Level",
+        "Кол-во тренировок / Sessions",
+        "Средний балл / Avg Overall",
+        "Средняя точность / Avg Accuracy",
+        "Средняя беглость / Avg Fluency",
+        "Лучший балл / Best Score",
+    ])
+
+    for r in rows:
+        writer.writerow([
+            r["name"],
+            r["email"],
+            r["level"],
+            r["total_sessions"],
+            r["avg_score"],
+            r["avg_accuracy"],
+            r["avg_fluency"],
+            r["best_score"],
+        ])
+
+    csv_content = output.getvalue()
+    output.close()
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": "attachment; filename=students_progress.csv",
+        },
+    )
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Zap, ArrowLeft, RefreshCw, TrendingUp, Clock } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Zap, ArrowLeft, RefreshCw, TrendingUp, Clock, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import API_BASE_URL from '../apiConfig';
 import type { Lang } from '../i18n';
@@ -35,6 +35,7 @@ interface StudentRow {
   level: string;
   total_sessions: number;
   avg_score: number;
+  avg_accuracy: number;
   avg_fluency: number;
   best_score: number;
   joined: string | null;
@@ -90,6 +91,25 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
     if (!iso) return '—';
     const d = new Date(iso);
     return d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleDownloadCSV = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/export/csv`, { headers });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'students_progress.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('CSV download error:', e);
+      alert(lang === 'ru' ? 'Ошибка при скачивании отчёта' : 'Error downloading report');
+    }
   };
 
   return (
@@ -240,10 +260,17 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
             /* Students Tab */
             <motion.div key="students" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <div className="glass-panel p-5">
-                <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2 mb-4">
-                  <Users className="w-4 h-4 text-violet-400" />
-                  {t('Все студенты', 'All Students')} ({students.length})
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+                    <Users className="w-4 h-4 text-violet-400" />
+                    {t('Сводка по группе', 'Group Summary')} ({students.length})
+                  </h3>
+                  <button onClick={handleDownloadCSV}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] sm:text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all">
+                    <Download className="w-4 h-4" />
+                    {t('Скачать отчёт (CSV)', 'Download Report (CSV)')}
+                  </button>
+                </div>
                 {students.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-8">{t('Студенты не найдены', 'No students found')}</p>
                 ) : (
@@ -251,11 +278,12 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-white/10">
-                          <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Имя', 'Name')}</th>
-                          <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Email</th>
+                          <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Студент', 'Student')}</th>
                           <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Уровень', 'Level')}</th>
                           <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Тренировок', 'Sessions')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. балл', 'Avg')}</th>
+                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. балл', 'Avg Overall')}</th>
+                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. точность', 'Avg Accuracy')}</th>
+                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. беглость', 'Avg Fluency')}</th>
                           <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Лучший', 'Best')}</th>
                           <th className="text-right py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Дата рег.', 'Joined')}</th>
                         </tr>
@@ -264,14 +292,22 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                         {students.map((s, i) => (
                           <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                             className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <td className="py-2.5 px-3 font-medium text-slate-200">{s.name}</td>
-                            <td className="py-2.5 px-3 text-slate-400 text-xs">{s.email}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="font-medium text-slate-200">{s.name}</div>
+                              <div className="text-[10px] text-slate-500">{s.email}</div>
+                            </td>
                             <td className="py-2.5 px-3 text-center">
                               <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400">{s.level}</span>
                             </td>
                             <td className="py-2.5 px-3 text-center text-slate-300 font-bold">{s.total_sessions}</td>
                             <td className="py-2.5 px-3 text-center">
-                              <span className={`font-bold ${scoreColor(s.avg_score)}`}>{s.avg_score}%</span>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${scoreBg(s.avg_score)} ${scoreColor(s.avg_score)}`}>{s.avg_score}%</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`font-bold ${scoreColor(s.avg_accuracy)}`}>{s.avg_accuracy}%</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`font-bold ${scoreColor(s.avg_fluency)}`}>{s.avg_fluency}%</span>
                             </td>
                             <td className="py-2.5 px-3 text-center">
                               <span className={`font-bold ${scoreColor(s.best_score)}`}>{s.best_score}%</span>
