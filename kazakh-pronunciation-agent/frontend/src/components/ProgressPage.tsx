@@ -30,6 +30,8 @@ interface Stats {
   avg_intonation: number;
   avg_stress: number;
   best_score: number;
+  start_level: number;
+  current_level: number;
   improvement: number;
 }
 
@@ -112,15 +114,15 @@ export default function ProgressPage({ token, onBack, lang }: ProgressPageProps)
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="glass-panel p-4 text-center">
               <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
-              <div className={`text-2xl font-bold ${getScoreColor(stats.avg_overall)}`}>{stats.avg_overall}%</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.avg', lang)}</div>
+              <div className={`text-2xl font-bold ${getScoreColor(stats.start_level)}`}>{stats.start_level}%</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.start_level', lang)}</div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
               className="glass-panel p-4 text-center">
               <Trophy className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-amber-300">{stats.best_score}%</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.best', lang)}</div>
+              <div className={`text-2xl font-bold ${getScoreColor(stats.current_level)}`}>{stats.current_level}%</div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('progress.current_level', lang)}</div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}

@@ -84,10 +84,10 @@ def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_
         sa_func.avg(PronunciationResult.stress),
     ).filter(PronunciationResult.user_id == user.id).first()
 
-    first_5 = query.order_by(PronunciationResult.created_at.asc()).limit(5).all()
-    last_5 = query.order_by(PronunciationResult.created_at.desc()).limit(5).all()
-    avg_first = sum(r.overall_score for r in first_5) / len(first_5) if first_5 else 0
-    avg_last = sum(r.overall_score for r in last_5) / len(last_5) if last_5 else 0
+    first = query.order_by(PronunciationResult.created_at.asc()).first()
+    last = query.order_by(PronunciationResult.created_at.desc()).first()
+    start_level = first.overall_score if first else 0
+    current_level = last.overall_score if last else 0
 
     return {
         "total_sessions": total,
@@ -98,5 +98,7 @@ def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_
         "best_score": round(stats[4] or 0, 1),
         "avg_intonation": round(stats[5] or 0, 1),
         "avg_stress": round(stats[6] or 0, 1),
-        "improvement": round(avg_last - avg_first, 1),
+        "start_level": round(start_level, 1),
+        "current_level": round(current_level, 1),
+        "improvement": round(current_level - start_level, 1),
     }

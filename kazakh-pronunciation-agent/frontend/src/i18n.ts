@@ -160,6 +160,8 @@ const translations = {
   'progress.sessions': { ru: 'Занятий', en: 'Sessions' },
   'progress.avg': { ru: 'Средний балл', en: 'Avg Score' },
   'progress.best': { ru: 'Лучший балл', en: 'Best Score' },
+  'progress.start_level': { ru: 'Стартовый балл', en: 'Start Level' },
+  'progress.current_level': { ru: 'Текущий балл', en: 'Current Level' },
   'progress.improvement': { ru: 'Прогресс', en: 'Improvement' },
   'progress.history': { ru: 'История занятий', en: 'Session History' },
   'progress.no_data': { ru: 'Данных пока нет. Начните практику!', en: 'No data yet. Start practicing!' },

@@ -208,26 +208,25 @@ def student_history(
         .all()
     )
 
-    # Compute start level (avg of first 3) and current level (avg of last 3)
+    # Compute start level (first session) and current level (last session)
     n = len(all_results)
-    first_n = all_results[:3] if n >= 1 else []
-    last_n = all_results[-3:] if n >= 1 else []
+    first = all_results[0] if n >= 1 else None
+    last = all_results[-1] if n >= 1 else None
 
-    def _avg_metrics(subset):
-        if not subset:
+    def _extract_metrics(r):
+        if not r:
             return {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
-        cnt = len(subset)
         return {
-            "overall": round(sum(r.overall_score for r in subset) / cnt, 1),
-            "accuracy": round(sum((r.accuracy or 0) for r in subset) / cnt, 1),
-            "fluency": round(sum((r.fluency or 0) for r in subset) / cnt, 1),
-            "completeness": round(sum((r.completeness or 0) for r in subset) / cnt, 1),
-            "intonation": round(sum((r.intonation or 0) for r in subset) / cnt, 1),
-            "stress": round(sum((r.stress or 0) for r in subset) / cnt, 1),
+            "overall": round(r.overall_score, 1),
+            "accuracy": round(r.accuracy or 0, 1),
+            "fluency": round(r.fluency or 0, 1),
+            "completeness": round(r.completeness or 0, 1),
+            "intonation": round(r.intonation or 0, 1),
+            "stress": round(r.stress or 0, 1),
         }
 
-    start_metrics = _avg_metrics(first_n)
-    current_metrics = _avg_metrics(last_n)
+    start_metrics = _extract_metrics(first)
+    current_metrics = _extract_metrics(last)
     improvement = {k: round(current_metrics[k] - start_metrics[k], 1) for k in start_metrics}
 
     sessions = [
