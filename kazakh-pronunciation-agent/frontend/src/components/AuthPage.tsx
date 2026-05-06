@@ -156,6 +156,7 @@ export default function AuthPage({ onAuth, onBack, lang }: AuthPageProps) {
           </div>
         )}
 
+        <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'forgot' && (
             <>
               <div className="relative">
