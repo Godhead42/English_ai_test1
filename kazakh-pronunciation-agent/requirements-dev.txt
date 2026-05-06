@@ -1,0 +1,2 @@
+# Development & testing dependencies (not required in production)
+locust>=2.20
