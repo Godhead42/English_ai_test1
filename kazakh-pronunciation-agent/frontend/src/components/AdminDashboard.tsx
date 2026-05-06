@@ -3,6 +3,7 @@ import { Users, BookOpen, BarChart3, Zap, ArrowLeft, RefreshCw, TrendingUp, Cloc
 import { motion, AnimatePresence } from 'framer-motion';
 import API_BASE_URL from '../apiConfig';
 import type { Lang } from '../i18n';
+import StudentDetailView from './StudentDetailView';
 
 interface OverviewStats {
   total_students: number;
@@ -58,6 +59,7 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'overview' | 'students'>('overview');
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -153,6 +155,15 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
           </button>
         </div>
 
+        {/* Student Detail Drill-down */}
+        {selectedStudentId !== null ? (
+          <StudentDetailView
+            studentId={selectedStudentId}
+            token={token}
+            onBack={() => setSelectedStudentId(null)}
+            lang={lang}
+          />
+        ) : (
         <AnimatePresence mode="wait">
           {loading && !overview ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -291,7 +302,8 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                       <tbody>
                         {students.map((s, i) => (
                           <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                            className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            onClick={() => setSelectedStudentId(s.id)}
+                            className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer">
                             <td className="py-2.5 px-3">
                               <div className="font-medium text-slate-200">{s.name}</div>
                               <div className="text-[10px] text-slate-500">{s.email}</div>
@@ -323,6 +335,7 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
     </div>
   );

@@ -161,3 +161,59 @@ def export_csv(
         },
     )
 
+
+@router.get("/api/admin/student/{student_id}/history")
+def student_history(
+    student_id: int,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return full session history and progress stats for a specific student."""
+    student = db.query(User).filter(User.id == student_id).first()
+    if not student:
+        return {"error": "Student not found"}
+
+    all_results = (
+        db.query(PronunciationResult)
+        .filter(PronunciationResult.user_id == student_id)
+        .order_by(PronunciationResult.created_at.asc())
+        .all()
+    )
+
+    # Compute start level (avg of first 3) and current level (avg of last 3)
+    scores = [r.overall_score for r in all_results]
+    start_level = round(sum(scores[:3]) / len(scores[:3]), 1) if len(scores) >= 1 else 0
+    current_level = round(sum(scores[-3:]) / len(scores[-3:]), 1) if len(scores) >= 1 else 0
+
+    sessions = [
+        {
+            "id": r.id,
+            "phrase": r.phrase[:80] + ("…" if len(r.phrase) > 80 else ""),
+            "level": r.level,
+            "topic": r.topic or "",
+            "overall_score": round(r.overall_score, 1),
+            "accuracy": round(r.accuracy or 0, 1),
+            "fluency": round(r.fluency or 0, 1),
+            "completeness": round(r.completeness or 0, 1),
+            "intonation": round(r.intonation or 0, 1),
+            "stress": round(r.stress or 0, 1),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in all_results
+    ]
+
+    return {
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "email": student.email,
+            "level": student.level,
+        },
+        "stats": {
+            "total_sessions": len(all_results),
+            "start_level": start_level,
+            "current_level": current_level,
+            "improvement": round(current_level - start_level, 1),
+        },
+        "sessions": sessions,
+    }
