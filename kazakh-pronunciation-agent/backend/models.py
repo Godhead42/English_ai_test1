@@ -12,6 +12,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     level = Column(String, default="A1")
     is_admin = Column(Boolean, default=False)
+    reset_token = Column(String, nullable=True)
+    reset_token_expires = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     results = relationship("PronunciationResult", back_populates="user")

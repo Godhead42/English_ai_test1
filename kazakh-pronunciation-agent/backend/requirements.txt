@@ -12,3 +12,4 @@ python-jose[cryptography]==3.3.0
 pydantic[email]==2.7.1
 openai>=1.30.0
 pydub==0.25.1
+aiosmtplib>=2.0.0

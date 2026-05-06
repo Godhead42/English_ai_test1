@@ -23,3 +23,12 @@ class SaveResultRequest(BaseModel):
     intonation: float = 0
     stress: float = 0
     issue_count: int = 0
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
