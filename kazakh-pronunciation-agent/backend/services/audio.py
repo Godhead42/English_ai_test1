@@ -1,11 +1,11 @@
-"""Audio transcription via OpenAI Whisper."""
+"""Audio transcription via Groq Whisper."""
 import io
-from config import openai_client
+from config import groq_client
 
 
 async def transcribe_audio(file_bytes: bytes, filename: str = "recording.webm") -> str:
     """
-    Transcribe audio bytes using OpenAI Whisper-1.
+    Transcribe audio bytes using Groq Whisper-large-v3.
     Returns the recognised text, or an empty string on failure.
     """
     if not file_bytes:
@@ -13,16 +13,19 @@ async def transcribe_audio(file_bytes: bytes, filename: str = "recording.webm") 
 
     try:
         audio_file = io.BytesIO(file_bytes)
-        audio_file.name = filename  # OpenAI needs the name to detect format
+        audio_file.name = filename  # API needs the name to detect format
 
-        transcription = openai_client.audio.transcriptions.create(
-            model="whisper-1",
+        transcription = groq_client.audio.transcriptions.create(
+            model="whisper-large-v3",
             file=audio_file,
             language="en",
-            prompt="Umm, well... I am s-speeking wif a baaad akcent, uhh, y'know?",
             temperature=0.6,
+            response_format="text",
         )
-        return transcription.text.strip()
+        # Groq returns plain text when response_format="text"
+        result = transcription if isinstance(transcription, str) else transcription.text
+        return result.strip()
     except Exception as exc:
-        print(f"Whisper STT error: {exc}")
+        print(f"Groq Whisper STT error: {exc}")
         return ""
+
