@@ -26,11 +26,20 @@ interface StudentInfo {
   level: string;
 }
 
+interface MetricSet {
+  overall: number;
+  accuracy: number;
+  fluency: number;
+  completeness: number;
+  intonation: number;
+  stress: number;
+}
+
 interface Stats {
   total_sessions: number;
-  start_level: number;
-  current_level: number;
-  improvement: number;
+  start_level: MetricSet;
+  current_level: MetricSet;
+  improvement: MetricSet;
 }
 
 interface Props {
@@ -92,15 +101,50 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
     fluency: s.fluency,
   }));
 
-  const improvementIcon = stats && stats.improvement > 0
+  const imp = stats?.improvement;
+  const improvementIcon = imp && imp.overall > 0
     ? <TrendingUp className="w-5 h-5 text-emerald-400" />
-    : stats && stats.improvement < 0
+    : imp && imp.overall < 0
     ? <TrendingDown className="w-5 h-5 text-red-400" />
     : <Minus className="w-5 h-5 text-slate-400" />;
 
-  const improvementColor = stats && stats.improvement > 0
-    ? 'text-emerald-400' : stats && stats.improvement < 0
+  const improvementColor = imp && imp.overall > 0
+    ? 'text-emerald-400' : imp && imp.overall < 0
     ? 'text-red-400' : 'text-slate-400';
+
+  const metricLabels = [
+    { key: 'accuracy' as const, label: t('Точн.', 'Acc') },
+    { key: 'fluency' as const, label: t('Бегл.', 'Flu') },
+    { key: 'completeness' as const, label: t('Полн.', 'Comp') },
+    { key: 'intonation' as const, label: t('Инт.', 'Int') },
+    { key: 'stress' as const, label: t('Удар.', 'Str') },
+  ];
+
+  const SubMetrics = ({ data }: { data: MetricSet }) => (
+    <div className="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-white/5">
+      {metricLabels.map(m => (
+        <div key={m.key} className="text-center">
+          <div className={`text-[11px] font-bold ${scoreColor(data[m.key])}`}>{data[m.key]}%</div>
+          <div className="text-[7px] uppercase tracking-wider text-slate-600 font-bold">{m.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const ImprovementMetrics = ({ data }: { data: MetricSet }) => (
+    <div className="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-white/5">
+      {metricLabels.map(m => {
+        const v = data[m.key];
+        const c = v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-500';
+        return (
+          <div key={m.key} className="text-center">
+            <div className={`text-[11px] font-bold ${c}`}>{v > 0 ? '+' : ''}{v}%</div>
+            <div className="text-[7px] uppercase tracking-wider text-slate-600 font-bold">{m.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   if (loading) {
     return (
@@ -141,10 +185,11 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
           <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 blur-xl -translate-y-4 translate-x-4" />
           <div className="relative z-10">
             <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
-            <div className={`text-2xl sm:text-3xl font-bold ${scoreColor(stats.start_level)}`}>{stats.start_level}%</div>
+            <div className={`text-2xl sm:text-3xl font-bold ${scoreColor(stats.start_level.overall)}`}>{stats.start_level.overall}%</div>
             <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">
               {t('Стартовый уровень', 'Start Level')}
             </div>
+            <SubMetrics data={stats.start_level} />
           </div>
         </motion.div>
 
@@ -153,10 +198,11 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
           <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-10 blur-xl -translate-y-4 translate-x-4" />
           <div className="relative z-10">
             <TrendingUp className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
-            <div className={`text-2xl sm:text-3xl font-bold ${scoreColor(stats.current_level)}`}>{stats.current_level}%</div>
+            <div className={`text-2xl sm:text-3xl font-bold ${scoreColor(stats.current_level.overall)}`}>{stats.current_level.overall}%</div>
             <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">
               {t('Текущий уровень', 'Current Level')}
             </div>
+            <SubMetrics data={stats.current_level} />
           </div>
         </motion.div>
 
@@ -166,11 +212,12 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
           <div className="relative z-10">
             <div className="mx-auto mb-2 flex justify-center">{improvementIcon}</div>
             <div className={`text-2xl sm:text-3xl font-bold ${improvementColor}`}>
-              {stats.improvement > 0 ? '+' : ''}{stats.improvement}%
+              {stats.improvement.overall > 0 ? '+' : ''}{stats.improvement.overall}%
             </div>
             <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">
               {t('Прогресс', 'Improvement')}
             </div>
+            <ImprovementMetrics data={stats.improvement} />
           </div>
         </motion.div>
       </div>

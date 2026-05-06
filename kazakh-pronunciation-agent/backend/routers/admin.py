@@ -78,7 +78,7 @@ def admin_recent_activity(
 
 
 def _get_student_rows(db: Session) -> list[dict]:
-    """Shared helper: aggregate stats per student."""
+    """Shared helper: aggregate stats per student (with first/last session data)."""
     students = db.query(User).filter(User.is_admin == False).all()
     result = []
     for s in students:
@@ -87,8 +87,31 @@ def _get_student_rows(db: Session) -> list[dict]:
             sa_func.avg(PronunciationResult.overall_score),
             sa_func.avg(PronunciationResult.accuracy),
             sa_func.avg(PronunciationResult.fluency),
+            sa_func.avg(PronunciationResult.completeness),
+            sa_func.avg(PronunciationResult.intonation),
+            sa_func.avg(PronunciationResult.stress),
             sa_func.max(PronunciationResult.overall_score),
         ).filter(PronunciationResult.user_id == s.id).first()
+
+        # First and last sessions
+        first = db.query(PronunciationResult).filter(
+            PronunciationResult.user_id == s.id
+        ).order_by(PronunciationResult.created_at.asc()).first()
+        last = db.query(PronunciationResult).filter(
+            PronunciationResult.user_id == s.id
+        ).order_by(PronunciationResult.created_at.desc()).first()
+
+        def _snap(r):
+            if not r:
+                return {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+            return {
+                "overall": round(r.overall_score, 1),
+                "accuracy": round(r.accuracy or 0, 1),
+                "fluency": round(r.fluency or 0, 1),
+                "completeness": round(r.completeness or 0, 1),
+                "intonation": round(r.intonation or 0, 1),
+                "stress": round(r.stress or 0, 1),
+            }
 
         result.append({
             "id": s.id,
@@ -99,7 +122,12 @@ def _get_student_rows(db: Session) -> list[dict]:
             "avg_score": round(stats[1] or 0, 1),
             "avg_accuracy": round(stats[2] or 0, 1),
             "avg_fluency": round(stats[3] or 0, 1),
-            "best_score": round(stats[4] or 0, 1),
+            "avg_completeness": round(stats[4] or 0, 1),
+            "avg_intonation": round(stats[5] or 0, 1),
+            "avg_stress": round(stats[6] or 0, 1),
+            "best_score": round(stats[7] or 0, 1),
+            "first": _snap(first),
+            "last": _snap(last),
             "joined": s.created_at.isoformat() if s.created_at else None,
         })
     return result
@@ -128,26 +156,26 @@ def export_csv(
 
     writer = csv.writer(output)
     writer.writerow([
-        "Name",
-        "Email",
-        "Level",
-        "Sessions",
-        "Avg Overall",
-        "Avg Accuracy",
-        "Avg Fluency",
-        "Best Score",
+        "Name", "Email", "Level", "Sessions",
+        "Avg Overall", "Avg Accuracy", "Avg Fluency",
+        "Avg Completeness", "Avg Intonation", "Avg Stress", "Best Score",
+        "First Overall", "First Accuracy", "First Fluency",
+        "First Completeness", "First Intonation", "First Stress",
+        "Last Overall", "Last Accuracy", "Last Fluency",
+        "Last Completeness", "Last Intonation", "Last Stress",
     ])
 
     for r in rows:
+        f = r["first"]
+        l = r["last"]
         writer.writerow([
-            r["name"],
-            r["email"],
-            r["level"],
-            r["total_sessions"],
-            r["avg_score"],
-            r["avg_accuracy"],
-            r["avg_fluency"],
-            r["best_score"],
+            r["name"], r["email"], r["level"], r["total_sessions"],
+            r["avg_score"], r["avg_accuracy"], r["avg_fluency"],
+            r["avg_completeness"], r["avg_intonation"], r["avg_stress"], r["best_score"],
+            f["overall"], f["accuracy"], f["fluency"],
+            f["completeness"], f["intonation"], f["stress"],
+            l["overall"], l["accuracy"], l["fluency"],
+            l["completeness"], l["intonation"], l["stress"],
         ])
 
     csv_content = output.getvalue()
@@ -181,9 +209,26 @@ def student_history(
     )
 
     # Compute start level (avg of first 3) and current level (avg of last 3)
-    scores = [r.overall_score for r in all_results]
-    start_level = round(sum(scores[:3]) / len(scores[:3]), 1) if len(scores) >= 1 else 0
-    current_level = round(sum(scores[-3:]) / len(scores[-3:]), 1) if len(scores) >= 1 else 0
+    n = len(all_results)
+    first_n = all_results[:3] if n >= 1 else []
+    last_n = all_results[-3:] if n >= 1 else []
+
+    def _avg_metrics(subset):
+        if not subset:
+            return {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+        cnt = len(subset)
+        return {
+            "overall": round(sum(r.overall_score for r in subset) / cnt, 1),
+            "accuracy": round(sum((r.accuracy or 0) for r in subset) / cnt, 1),
+            "fluency": round(sum((r.fluency or 0) for r in subset) / cnt, 1),
+            "completeness": round(sum((r.completeness or 0) for r in subset) / cnt, 1),
+            "intonation": round(sum((r.intonation or 0) for r in subset) / cnt, 1),
+            "stress": round(sum((r.stress or 0) for r in subset) / cnt, 1),
+        }
+
+    start_metrics = _avg_metrics(first_n)
+    current_metrics = _avg_metrics(last_n)
+    improvement = {k: round(current_metrics[k] - start_metrics[k], 1) for k in start_metrics}
 
     sessions = [
         {
@@ -210,10 +255,10 @@ def student_history(
             "level": student.level,
         },
         "stats": {
-            "total_sessions": len(all_results),
-            "start_level": start_level,
-            "current_level": current_level,
-            "improvement": round(current_level - start_level, 1),
+            "total_sessions": n,
+            "start_level": start_metrics,
+            "current_level": current_metrics,
+            "improvement": improvement,
         },
         "sessions": sessions,
     }

@@ -38,6 +38,9 @@ interface StudentRow {
   avg_score: number;
   avg_accuracy: number;
   avg_fluency: number;
+  avg_completeness: number;
+  avg_intonation: number;
+  avg_stress: number;
   best_score: number;
   joined: string | null;
 }
@@ -286,17 +289,20 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                   <p className="text-sm text-slate-500 text-center py-8">{t('Студенты не найдены', 'No students found')}</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-[13px]">
                       <thead>
                         <tr className="border-b border-white/10">
-                          <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Студент', 'Student')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Уровень', 'Level')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Тренировок', 'Sessions')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. балл', 'Avg Overall')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. точность', 'Avg Accuracy')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Ср. беглость', 'Avg Fluency')}</th>
-                          <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Лучший', 'Best')}</th>
-                          <th className="text-right py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Дата рег.', 'Joined')}</th>
+                          <th className="text-left py-2 px-2 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Студент', 'Student')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Ур.', 'Lvl')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Сес.', 'Ses.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Общ.', 'Ovr.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Точн.', 'Acc.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Бегл.', 'Flu.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Полн.', 'Comp.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Инт.', 'Int.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Удар.', 'Str.')}</th>
+                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Лучш.', 'Best')}</th>
+                          <th className="text-right py-2 px-2 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Рег.', 'Joined')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -304,27 +310,36 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                           <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                             onClick={() => setSelectedStudentId(s.id)}
                             className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer">
-                            <td className="py-2.5 px-3">
-                              <div className="font-medium text-slate-200">{s.name}</div>
-                              <div className="text-[10px] text-slate-500">{s.email}</div>
+                            <td className="py-2 px-2">
+                              <div className="font-medium text-slate-200 text-[13px]">{s.name}</div>
+                              <div className="text-[9px] text-slate-500">{s.email}</div>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400">{s.level}</span>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className="px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400">{s.level}</span>
                             </td>
-                            <td className="py-2.5 px-3 text-center text-slate-300 font-bold">{s.total_sessions}</td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${scoreBg(s.avg_score)} ${scoreColor(s.avg_score)}`}>{s.avg_score}%</span>
+                            <td className="py-2 px-1.5 text-center text-slate-300 font-bold">{s.total_sessions}</td>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${scoreBg(s.avg_score)} ${scoreColor(s.avg_score)}`}>{s.avg_score}%</span>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={`font-bold ${scoreColor(s.avg_accuracy)}`}>{s.avg_accuracy}%</span>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.avg_accuracy)}`}>{s.avg_accuracy}%</span>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={`font-bold ${scoreColor(s.avg_fluency)}`}>{s.avg_fluency}%</span>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.avg_fluency)}`}>{s.avg_fluency}%</span>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={`font-bold ${scoreColor(s.best_score)}`}>{s.best_score}%</span>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.avg_completeness)}`}>{s.avg_completeness}%</span>
                             </td>
-                            <td className="py-2.5 px-3 text-right text-xs text-slate-500">{formatDate(s.joined)}</td>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.avg_intonation)}`}>{s.avg_intonation}%</span>
+                            </td>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.avg_stress)}`}>{s.avg_stress}%</span>
+                            </td>
+                            <td className="py-2 px-1.5 text-center">
+                              <span className={`font-bold text-xs ${scoreColor(s.best_score)}`}>{s.best_score}%</span>
+                            </td>
+                            <td className="py-2 px-2 text-right text-xs text-slate-500">{formatDate(s.joined)}</td>
                           </motion.tr>
                         ))}
                       </tbody>
