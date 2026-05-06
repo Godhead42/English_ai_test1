@@ -148,11 +148,11 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
 
         {/* Tabs */}
         <div className="flex items-center gap-2 mb-6">
-          <button onClick={() => setTab('overview')}
+          <button onClick={() => { setSelectedStudentId(null); setTab('overview'); }}
             className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${tab === 'overview' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}>
             {t('Обзор', 'Overview')}
           </button>
-          <button onClick={() => setTab('students')}
+          <button onClick={() => { setSelectedStudentId(null); setTab('students'); }}
             className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${tab === 'students' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}>
             {t('Студенты', 'Students')}
           </button>
