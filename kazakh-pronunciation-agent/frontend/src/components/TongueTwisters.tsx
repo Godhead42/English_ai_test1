@@ -5,7 +5,7 @@ import API_BASE_URL from '../apiConfig';
 import { t, type Lang } from '../i18n';
 
 interface AnalysisResult {
-  scores: { overall: number; accuracy: number; fluency: number; completeness: number; intonation: number; stress: number };
+  scores: { overall: number; accuracy: number; fluency: number; intonation: number; stress: number };
   word_analysis: any;
   phonetic_issues: any[];
   stress_issues: any[];
@@ -132,11 +132,11 @@ export default function TongueTwisters({ level, lang, token }: Props) {
         fetch(`${API_BASE_URL}/api/progress`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ phrase: targetText, level, topic: 'tongue_twister', overall_score: data?.scores?.overall || 0, accuracy: data?.scores?.accuracy || 0, fluency: data?.scores?.fluency || 0, completeness: data?.scores?.completeness || 0, intonation: data?.scores?.intonation || 0, stress: data?.scores?.stress || 0, issue_count: data?.phonetic_issues?.length || 0 }),
+          body: JSON.stringify({ phrase: targetText, level, topic: 'tongue_twister', overall_score: data?.scores?.overall || 0, accuracy: data?.scores?.accuracy || 0, fluency: data?.scores?.fluency || 0, intonation: data?.scores?.intonation || 0, stress: data?.scores?.stress || 0, issue_count: data?.phonetic_issues?.length || 0 }),
         }).catch(() => {});
       }
     } catch (err: any) {
-      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: lang === 'ru' ? `Ошибка сервера. Но мы вас услышали: "${userText}". Попробуйте еще раз.` : `Server error. But we heard you: "${userText}". Please try again.` });
+      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: [], extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: lang === 'ru' ? `Ошибка сервера. Но мы вас услышали: "${userText}". Попробуйте еще раз.` : `Server error. But we heard you: "${userText}". Please try again.` });
       setStep('results');
     }
   };
@@ -217,12 +217,11 @@ export default function TongueTwisters({ level, lang, token }: Props) {
               </div>
 
               {/* 6 score grid */}
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 sm:gap-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 sm:gap-2">
                 {[
                   { label: t('score.total', lang), value: result.scores.overall },
                   { label: t('score.accuracy', lang), value: result.scores.accuracy },
                   { label: t('score.fluency', lang), value: result.scores.fluency },
-                  { label: t('score.complete', lang), value: result.scores.completeness },
                   { label: t('score.intonation', lang), value: result.scores.intonation ?? 0 },
                   { label: t('score.stress', lang), value: result.scores.stress ?? 0 },
                 ].map(m => (

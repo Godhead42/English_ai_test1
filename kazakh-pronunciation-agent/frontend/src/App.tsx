@@ -275,7 +275,7 @@ export default function App() {
     const targetText = phrases[currentPhraseIndex] || "";
     if (!userText.trim() && !audioBlob) {
       const tw = targetText.toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/);
-      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, completeness: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: tw.map(w => ({ word: w, status: 'missing' })), extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: '', summary: t('result.no_speech', lang) });
+      setResult({ scores: { overall: 0, accuracy: 0, fluency: 0, intonation: 0, stress: 0 }, word_analysis: { correct: [], incorrect: [], missing: tw.map(w => ({ word: w, status: 'missing' })), extra: [] }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: '', summary: t('result.no_speech', lang) });
       setStep('results'); return;
     }
     try {
@@ -286,13 +286,13 @@ export default function App() {
       const data: AnalysisResult = await resp.json(); setResult(data); setStep('results');
       const hi: HistoryItem = { id: Math.random().toString(36).substring(7), phrase: targetText, level: selectedLevel, topic: selectedTopic, score: data.scores.overall, accuracy: data.scores.accuracy, date: new Date().toLocaleTimeString(), issueCount: data.phonetic_issues.length };
       setHistory(prev => [hi, ...prev].slice(0, 50));
-      if (token) { fetch(`${API_BASE}/api/progress`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ phrase: targetText, level: selectedLevel, topic: selectedTopic, overall_score: data.scores.overall, accuracy: data.scores.accuracy, fluency: data.scores.fluency, completeness: data.scores.completeness, intonation: data.scores.intonation || 0, stress: data.scores.stress || 0, issue_count: data.phonetic_issues.length }) }).catch(e => console.error('Save error:', e)); }
+      if (token) { fetch(`${API_BASE}/api/progress`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ phrase: targetText, level: selectedLevel, topic: selectedTopic, overall_score: data.scores.overall, accuracy: data.scores.accuracy, fluency: data.scores.fluency, intonation: data.scores.intonation || 0, stress: data.scores.stress || 0, issue_count: data.phonetic_issues.length }) }).catch(e => console.error('Save error:', e)); }
     } catch {
       const tn = targetText.toLowerCase().replace(/[^\w\s']/g, ''); const un = userText.toLowerCase().replace(/[^\w\s']/g, '');
       const tw2 = tn.split(/\s+/); const uw2 = un.split(/\s+/);
       const correct = tw2.filter(w => uw2.includes(w)); const missing = tw2.filter(w => !uw2.includes(w)); const extra = uw2.filter(w => !tw2.includes(w));
       const sc2 = Math.round((correct.length / Math.max(tw2.length, 1)) * 100);
-      setResult({ scores: { overall: sc2, accuracy: sc2, fluency: Math.max(0, sc2 - 10), completeness: sc2, intonation: 0, stress: 0 }, word_analysis: { correct: correct.map(w => ({ word: w, status: 'correct' })), incorrect: [], missing: missing.map(w => ({ word: w, status: 'missing' })), extra: extra.map(w => ({ word: w, status: 'extra' })) }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: userText ? `${correct.length}/${tw2.length} words matched.` : t('result.no_speech', lang) });
+      setResult({ scores: { overall: sc2, accuracy: sc2, fluency: Math.max(0, sc2 - 10), intonation: 0, stress: 0 }, word_analysis: { correct: correct.map(w => ({ word: w, status: 'correct' })), incorrect: [], missing: missing.map(w => ({ word: w, status: 'missing' })), extra: extra.map(w => ({ word: w, status: 'extra' })) }, phonetic_issues: [], stress_issues: [], target_text: targetText, user_text: userText, summary: userText ? `${correct.length}/${tw2.length} words matched.` : t('result.no_speech', lang) });
       setStep('results');
     }
   };
@@ -442,12 +442,11 @@ export default function App() {
                             </p>
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mt-6">
+                        <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mt-6">
                           {[
                             { label: t('score.total', lang), value: result.scores.overall, suffix: '' },
                             { label: t('score.accuracy', lang), value: result.scores.accuracy, suffix: '%' },
                             { label: t('score.fluency', lang), value: result.scores.fluency, suffix: '%' },
-                            { label: t('score.complete', lang), value: result.scores.completeness, suffix: '%' },
                             { label: t('score.intonation', lang), value: result.scores.intonation ?? 0, suffix: '%' },
                             { label: t('score.stress', lang), value: result.scores.stress ?? 0, suffix: '%' },
                           ].map((m, idx) => (

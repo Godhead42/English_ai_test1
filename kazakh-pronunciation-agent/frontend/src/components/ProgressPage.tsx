@@ -14,7 +14,6 @@ interface ProgressResult {
   overall_score: number;
   accuracy: number;
   fluency: number;
-  completeness: number;
   intonation: number;
   stress: number;
   issue_count: number;
@@ -26,7 +25,6 @@ interface Stats {
   avg_overall: number;
   avg_accuracy: number;
   avg_fluency: number;
-  avg_completeness: number;
   avg_intonation: number;
   avg_stress: number;
   best_score: number;
@@ -146,7 +144,6 @@ export default function ProgressPage({ token, onBack, lang }: ProgressPageProps)
                 { label: t('score.total', lang), value: stats.avg_overall },
                 { label: t('score.accuracy', lang), value: stats.avg_accuracy },
                 { label: t('score.fluency', lang), value: stats.avg_fluency },
-                { label: t('score.complete', lang), value: stats.avg_completeness },
                 { label: t('score.intonation', lang), value: stats.avg_intonation || 0 },
                 { label: t('score.stress', lang), value: stats.avg_stress || 0 },
               ].map(item => (

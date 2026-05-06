@@ -43,7 +43,6 @@ export interface AnalysisResult {
     overall: number;
     accuracy: number;
     fluency: number;
-    completeness: number;
     intonation: number;
     stress: number;
   };

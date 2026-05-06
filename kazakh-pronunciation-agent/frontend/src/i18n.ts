@@ -55,7 +55,7 @@ const translations = {
   'score.total': { ru: 'Общий балл', en: 'Total Score' },
   'score.accuracy': { ru: 'Точность', en: 'Accuracy' },
   'score.fluency': { ru: 'Беглость', en: 'Fluency' },
-  'score.complete': { ru: 'Полнота', en: 'Complete' },
+
   'score.intonation': { ru: 'Интонация', en: 'Intonation' },
   'score.stress': { ru: 'Ударение', en: 'Stress' },
 

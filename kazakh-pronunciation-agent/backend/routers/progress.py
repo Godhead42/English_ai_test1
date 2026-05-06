@@ -22,7 +22,6 @@ def save_progress(req: SaveResultRequest, user: User = Depends(get_current_user)
         overall_score=req.overall_score,
         accuracy=req.accuracy,
         fluency=req.fluency,
-        completeness=req.completeness,
         intonation=req.intonation,
         stress=req.stress,
         issue_count=req.issue_count,
@@ -51,7 +50,6 @@ def get_progress(user: User = Depends(get_current_user), db: Session = Depends(g
                 "overall_score": r.overall_score,
                 "accuracy": r.accuracy,
                 "fluency": r.fluency,
-                "completeness": r.completeness,
                 "intonation": getattr(r, "intonation", 0),
                 "stress": getattr(r, "stress", 0),
                 "issue_count": r.issue_count,
@@ -70,7 +68,7 @@ def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_
     if total == 0:
         return {
             "total_sessions": 0, "avg_overall": 0, "avg_accuracy": 0,
-            "avg_fluency": 0, "avg_completeness": 0, "avg_intonation": 0,
+            "avg_fluency": 0, "avg_intonation": 0,
             "avg_stress": 0, "best_score": 0, "improvement": 0,
         }
 
@@ -78,7 +76,6 @@ def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_
         sa_func.avg(PronunciationResult.overall_score),
         sa_func.avg(PronunciationResult.accuracy),
         sa_func.avg(PronunciationResult.fluency),
-        sa_func.avg(PronunciationResult.completeness),
         sa_func.max(PronunciationResult.overall_score),
         sa_func.avg(PronunciationResult.intonation),
         sa_func.avg(PronunciationResult.stress),
@@ -94,11 +91,10 @@ def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_
         "avg_overall": round(stats[0] or 0, 1),
         "avg_accuracy": round(stats[1] or 0, 1),
         "avg_fluency": round(stats[2] or 0, 1),
-        "avg_completeness": round(stats[3] or 0, 1),
-        "best_score": round(stats[4] or 0, 1),
-        "avg_intonation": round(stats[5] or 0, 1),
-        "avg_stress": round(stats[6] or 0, 1),
+        "best_score": round(stats[3] or 0, 1),
+        "avg_intonation": round(stats[4] or 0, 1),
+        "avg_stress": round(stats[5] or 0, 1),
         "start_level": round(start_level, 1),
         "current_level": round(current_level, 1),
-        "improvement": round(current_level - start_level, 1),
+        "improvement": round(round(stats[0] or 0, 1) - start_level, 1),
     }

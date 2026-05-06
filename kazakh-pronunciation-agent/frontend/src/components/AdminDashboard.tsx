@@ -11,7 +11,6 @@ interface OverviewStats {
   avg_overall: number;
   avg_fluency: number;
   avg_accuracy: number;
-  avg_completeness: number;
   avg_intonation: number;
   avg_stress: number;
 }
@@ -38,7 +37,6 @@ interface StudentRow {
   avg_score: number;
   avg_accuracy: number;
   avg_fluency: number;
-  avg_completeness: number;
   avg_intonation: number;
   avg_stress: number;
   best_score: number;
@@ -206,12 +204,11 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                     <TrendingUp className="w-4 h-4 text-violet-400" />
                     {t('Средние показатели по всем студентам', 'Average Scores Across All Students')}
                   </h3>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {[
                       { label: t('Общий', 'Overall'), value: overview.avg_overall },
                       { label: t('Точность', 'Accuracy'), value: overview.avg_accuracy },
                       { label: t('Беглость', 'Fluency'), value: overview.avg_fluency },
-                      { label: t('Полнота', 'Completeness'), value: overview.avg_completeness },
                       { label: t('Интонация', 'Intonation'), value: overview.avg_intonation },
                       { label: t('Ударение', 'Stress'), value: overview.avg_stress },
                     ].map(m => (
@@ -298,7 +295,6 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Общ.', 'Ovr.')}</th>
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Точн.', 'Acc.')}</th>
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Бегл.', 'Flu.')}</th>
-                          <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Полн.', 'Comp.')}</th>
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Инт.', 'Int.')}</th>
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Удар.', 'Str.')}</th>
                           <th className="text-center py-2 px-1.5 text-[9px] uppercase tracking-widest text-slate-500 font-bold">{t('Лучш.', 'Best')}</th>
@@ -326,9 +322,6 @@ export default function AdminDashboard({ token, onBack, lang }: Props) {
                             </td>
                             <td className="py-2 px-1.5 text-center">
                               <span className={`font-bold text-xs ${scoreColor(s.avg_fluency)}`}>{s.avg_fluency}%</span>
-                            </td>
-                            <td className="py-2 px-1.5 text-center">
-                              <span className={`font-bold text-xs ${scoreColor(s.avg_completeness)}`}>{s.avg_completeness}%</span>
                             </td>
                             <td className="py-2 px-1.5 text-center">
                               <span className={`font-bold text-xs ${scoreColor(s.avg_intonation)}`}>{s.avg_intonation}%</span>

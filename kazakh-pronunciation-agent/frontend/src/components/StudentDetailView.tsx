@@ -13,7 +13,6 @@ interface Session {
   overall_score: number;
   accuracy: number;
   fluency: number;
-  completeness: number;
   intonation: number;
   stress: number;
   created_at: string | null;
@@ -30,7 +29,6 @@ interface MetricSet {
   overall: number;
   accuracy: number;
   fluency: number;
-  completeness: number;
   intonation: number;
   stress: number;
 }
@@ -115,13 +113,12 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
   const metricLabels = [
     { key: 'accuracy' as const, label: t('Точн.', 'Acc') },
     { key: 'fluency' as const, label: t('Бегл.', 'Flu') },
-    { key: 'completeness' as const, label: t('Полн.', 'Comp') },
     { key: 'intonation' as const, label: t('Инт.', 'Int') },
     { key: 'stress' as const, label: t('Удар.', 'Str') },
   ];
 
   const SubMetrics = ({ data }: { data: MetricSet }) => (
-    <div className="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-white/5">
+    <div className="grid grid-cols-4 gap-1 mt-2 pt-2 border-t border-white/5">
       {metricLabels.map(m => (
         <div key={m.key} className="text-center">
           <div className={`text-[11px] font-bold ${scoreColor(data[m.key])}`}>{data[m.key]}%</div>
@@ -132,7 +129,7 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
   );
 
   const ImprovementMetrics = ({ data }: { data: MetricSet }) => (
-    <div className="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-white/5">
+    <div className="grid grid-cols-4 gap-1 mt-2 pt-2 border-t border-white/5">
       {metricLabels.map(m => {
         const v = data[m.key];
         const c = v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-500';
@@ -285,6 +282,8 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
                   <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Балл', 'Score')}</th>
                   <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Точность', 'Acc')}</th>
                   <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Беглость', 'Flu')}</th>
+                  <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Инт.', 'Int')}</th>
+                  <th className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Удар.', 'Str')}</th>
                   <th className="text-right py-2 px-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">{t('Дата', 'Date')}</th>
                 </tr>
               </thead>
@@ -307,6 +306,12 @@ export default function StudentDetailView({ studentId, token, onBack, lang }: Pr
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <span className={`font-bold text-xs ${scoreColor(s.fluency)}`}>{s.fluency}%</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className={`font-bold text-xs ${scoreColor(s.intonation)}`}>{s.intonation}%</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className={`font-bold text-xs ${scoreColor(s.stress)}`}>{s.stress}%</span>
                     </td>
                     <td className="py-2.5 px-3 text-right text-xs text-slate-500">{formatDateTime(s.created_at)}</td>
                   </motion.tr>

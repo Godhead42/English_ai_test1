@@ -87,7 +87,6 @@ def _get_student_rows(db: Session) -> list[dict]:
             sa_func.avg(PronunciationResult.overall_score),
             sa_func.avg(PronunciationResult.accuracy),
             sa_func.avg(PronunciationResult.fluency),
-            sa_func.avg(PronunciationResult.completeness),
             sa_func.avg(PronunciationResult.intonation),
             sa_func.avg(PronunciationResult.stress),
             sa_func.max(PronunciationResult.overall_score),
@@ -103,12 +102,11 @@ def _get_student_rows(db: Session) -> list[dict]:
 
         def _snap(r):
             if not r:
-                return {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+                return {"overall": 0, "accuracy": 0, "fluency": 0, "intonation": 0, "stress": 0}
             return {
                 "overall": round(r.overall_score, 1),
                 "accuracy": round(r.accuracy or 0, 1),
                 "fluency": round(r.fluency or 0, 1),
-                "completeness": round(r.completeness or 0, 1),
                 "intonation": round(r.intonation or 0, 1),
                 "stress": round(r.stress or 0, 1),
             }
@@ -122,10 +120,9 @@ def _get_student_rows(db: Session) -> list[dict]:
             "avg_score": round(stats[1] or 0, 1),
             "avg_accuracy": round(stats[2] or 0, 1),
             "avg_fluency": round(stats[3] or 0, 1),
-            "avg_completeness": round(stats[4] or 0, 1),
-            "avg_intonation": round(stats[5] or 0, 1),
-            "avg_stress": round(stats[6] or 0, 1),
-            "best_score": round(stats[7] or 0, 1),
+            "avg_intonation": round(stats[4] or 0, 1),
+            "avg_stress": round(stats[5] or 0, 1),
+            "best_score": round(stats[6] or 0, 1),
             "first": _snap(first),
             "last": _snap(last),
             "joined": s.created_at.isoformat() if s.created_at else None,
@@ -158,11 +155,11 @@ def export_csv(
     writer.writerow([
         "Name", "Email", "Level", "Sessions",
         "Avg Overall", "Avg Accuracy", "Avg Fluency",
-        "Avg Completeness", "Avg Intonation", "Avg Stress", "Best Score",
+        "Avg Intonation", "Avg Stress", "Best Score",
         "First Overall", "First Accuracy", "First Fluency",
-        "First Completeness", "First Intonation", "First Stress",
+        "First Intonation", "First Stress",
         "Last Overall", "Last Accuracy", "Last Fluency",
-        "Last Completeness", "Last Intonation", "Last Stress",
+        "Last Intonation", "Last Stress",
     ])
 
     for r in rows:
@@ -171,11 +168,11 @@ def export_csv(
         writer.writerow([
             r["name"], r["email"], r["level"], r["total_sessions"],
             r["avg_score"], r["avg_accuracy"], r["avg_fluency"],
-            r["avg_completeness"], r["avg_intonation"], r["avg_stress"], r["best_score"],
+            r["avg_intonation"], r["avg_stress"], r["best_score"],
             f["overall"], f["accuracy"], f["fluency"],
-            f["completeness"], f["intonation"], f["stress"],
+            f["intonation"], f["stress"],
             l["overall"], l["accuracy"], l["fluency"],
-            l["completeness"], l["intonation"], l["stress"],
+            l["intonation"], l["stress"],
         ])
 
     csv_content = output.getvalue()
@@ -215,19 +212,27 @@ def student_history(
 
     def _extract_metrics(r):
         if not r:
-            return {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+            return {"overall": 0, "accuracy": 0, "fluency": 0, "intonation": 0, "stress": 0}
         return {
             "overall": round(r.overall_score, 1),
             "accuracy": round(r.accuracy or 0, 1),
             "fluency": round(r.fluency or 0, 1),
-            "completeness": round(r.completeness or 0, 1),
             "intonation": round(r.intonation or 0, 1),
             "stress": round(r.stress or 0, 1),
         }
 
     start_metrics = _extract_metrics(first)
     current_metrics = _extract_metrics(last)
-    improvement = {k: round(current_metrics[k] - start_metrics[k], 1) for k in start_metrics}
+
+    avg_metrics = {
+        "overall": round(sum(r.overall_score for r in all_results) / n, 1) if n else 0,
+        "accuracy": round(sum((r.accuracy or 0) for r in all_results) / n, 1) if n else 0,
+        "fluency": round(sum((r.fluency or 0) for r in all_results) / n, 1) if n else 0,
+        "intonation": round(sum((r.intonation or 0) for r in all_results) / n, 1) if n else 0,
+        "stress": round(sum((r.stress or 0) for r in all_results) / n, 1) if n else 0,
+    }
+
+    improvement = {k: round(avg_metrics[k] - start_metrics[k], 1) for k in start_metrics}
 
     sessions = [
         {
@@ -238,7 +243,6 @@ def student_history(
             "overall_score": round(r.overall_score, 1),
             "accuracy": round(r.accuracy or 0, 1),
             "fluency": round(r.fluency or 0, 1),
-            "completeness": round(r.completeness or 0, 1),
             "intonation": round(r.intonation or 0, 1),
             "stress": round(r.stress or 0, 1),
             "created_at": r.created_at.isoformat() if r.created_at else None,
