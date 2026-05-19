@@ -7,7 +7,7 @@ from database import engine, get_db, Base, SessionLocal
 from models import User
 from auth import hash_password
 
-from routers import analyze, phrases, tts, chat, auth_routes, progress, admin
+from routers import analyze, analyze_demo, phrases, tts, chat, auth_routes, progress, admin
 
 app = FastAPI(title="English Pronunciation Agent API")
 
@@ -22,6 +22,7 @@ app.add_middleware(
 
 # ── Include routers ──────────────────────────────
 app.include_router(analyze.router)
+app.include_router(analyze_demo.router)
 app.include_router(phrases.router)
 app.include_router(tts.router)
 app.include_router(chat.router)
