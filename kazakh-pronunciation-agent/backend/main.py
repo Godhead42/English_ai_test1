@@ -44,6 +44,8 @@ def on_startup():
         # Seamless schema migration for prod: add is_admin if users table already existed
         try:
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE"))
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR"))
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP"))
             db.commit()
         except Exception:
             db.rollback()

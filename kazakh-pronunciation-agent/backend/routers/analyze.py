@@ -1,17 +1,18 @@
-"""Pronunciation analysis router — /api/analyze (Whisper + GPT-4o-mini)."""
+"""Pronunciation analysis router — /api/analyze (faster-whisper + Ollama phi3)."""
 
 import json
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form
-from fastapi.responses import JSONResponse
 
-from config import openai_client
+import httpx
+from config import OLLAMA_URL, OLLAMA_MODEL
 from services.audio import transcribe_audio
 
 router = APIRouter()
 
 
-# ── GPT-4o-mini analysis ────────────────────────────────
+# ── Ollama LLM analysis ────────────────────────────────
 
 SYSTEM_PROMPT = """You are an extremely strict, unforgiving phonetics professor evaluating an ESL student from Russia/Kazakhstan.
 
@@ -62,22 +63,31 @@ Return STRICTLY a JSON object (no markdown, no code fences) matching this exact 
 If the arrays are empty, return empty arrays []. Always return valid JSON."""
 
 
-async def analyze_with_gpt(target_text: str, spoken_text: str) -> dict:
-    """Call GPT-4o-mini to produce a structured pronunciation analysis."""
+async def analyze_with_ollama(target_text: str, spoken_text: str) -> dict:
+    """Call local Ollama (phi3) to produce a structured pronunciation analysis."""
+    prompt = f"""{SYSTEM_PROMPT}
+
+target_text: "{target_text}"
+spoken_text: "{spoken_text}"
+"""
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"target_text: \"{target_text}\"\nspoken_text: \"{spoken_text}\""},
-            ],
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                OLLAMA_URL,
+                json={
+                    "model": OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "format": "json",
+                    "stream": False,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # Ollama returns {"response": "...", ...}
+            raw_text = data.get("response", "")
+            return json.loads(raw_text)
     except Exception as exc:
-        print(f"GPT analysis error: {exc}")
+        print(f"Ollama analysis error: {exc}")
         return None
 
 
@@ -93,7 +103,7 @@ async def analyze_pronunciation(
     if not target_text.strip():
         target_text = user_text.strip() or "empty"
 
-    # Step 1: Get spoken text (prefer Whisper transcription from audio)
+    # Step 1: Get spoken text (prefer local faster-whisper transcription from audio)
     spoken_text = user_text.strip()
 
     if audio_file:
@@ -105,7 +115,7 @@ async def analyze_pronunciation(
                 if whisper_text:
                     spoken_text = whisper_text
         except Exception as e:
-            print(f"Whisper fallback triggered due to error: {e}")
+            print(f"faster-whisper fallback triggered due to error: {e}")
             # spoken_text remains equal to user_text from browser STT
 
     # Step 2: Handle no speech
@@ -126,27 +136,27 @@ async def analyze_pronunciation(
             "summary": "Речь не распознана. Проверьте микрофон и попробуйте снова.",
         }
 
-    # Step 3: GPT-4o-mini analysis
-    gpt_result = await analyze_with_gpt(target_text, spoken_text)
+    # Step 3: Ollama phi3 analysis
+    llm_result = await analyze_with_ollama(target_text, spoken_text)
 
-    if gpt_result:
+    if llm_result:
         # Attach original texts to response
-        gpt_result["target_text"] = target_text
-        gpt_result["user_text"] = spoken_text
+        llm_result["target_text"] = target_text
+        llm_result["user_text"] = spoken_text
         # Ensure all required fields exist and are not None
-        if not gpt_result.get("scores"):
-            gpt_result["scores"] = {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
-        if not gpt_result.get("word_analysis"):
-            gpt_result["word_analysis"] = {"correct": [], "incorrect": [], "missing": [], "extra": []}
-        if not gpt_result.get("phonetic_issues"):
-            gpt_result["phonetic_issues"] = []
-        if not gpt_result.get("stress_issues"):
-            gpt_result["stress_issues"] = []
-        if not gpt_result.get("summary"):
-            gpt_result["summary"] = "Анализ завершён."
-        return gpt_result
+        if not llm_result.get("scores"):
+            llm_result["scores"] = {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+        if not llm_result.get("word_analysis"):
+            llm_result["word_analysis"] = {"correct": [], "incorrect": [], "missing": [], "extra": []}
+        if not llm_result.get("phonetic_issues"):
+            llm_result["phonetic_issues"] = []
+        if not llm_result.get("stress_issues"):
+            llm_result["stress_issues"] = []
+        if not llm_result.get("summary"):
+            llm_result["summary"] = "Анализ завершён."
+        return llm_result
 
-    # Fallback if GPT fails — basic comparison
+    # Fallback if Ollama fails — basic word comparison
     target_words = target_text.lower().split()
     spoken_words = spoken_text.lower().split()
     correct = [w for w in target_words if w in spoken_words]
@@ -166,5 +176,5 @@ async def analyze_pronunciation(
         "stress_issues": [],
         "target_text": target_text,
         "user_text": spoken_text,
-        "summary": f"GPT недоступен. Базовый анализ: {len(correct)}/{len(target_words)} слов совпали.",
+        "summary": f"Ollama недоступен. Базовый анализ: {len(correct)}/{len(target_words)} слов совпали.",
     }
