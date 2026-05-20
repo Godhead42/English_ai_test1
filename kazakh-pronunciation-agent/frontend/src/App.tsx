@@ -222,12 +222,34 @@ export default function App() {
 
   // ─── Effects ─────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/api/levels`).then(r => r.json()).then(d => setLevels(d?.levels || [])).catch(() => {
+    fetch(`${API_BASE}/api/levels`).then(r => { if (!r.ok) throw new Error('fail'); return r.json(); }).then(d => setLevels(d?.levels || [])).catch(() => {
       setLevels([{ code: 'A1', name: 'Beginner', description: '' }, { code: 'A2', name: 'Elementary', description: '' },
         { code: 'B1', name: 'Intermediate', description: '' }, { code: 'B2', name: 'Upper Intermediate', description: '' },
         { code: 'C1', name: 'Advanced', description: '' }, { code: 'C2', name: 'Proficiency', description: '' }]);
     });
-    fetch(`${API_BASE}/api/topics`).then(r => r.json()).then(d => { const l = d?.topics || []; setTopics(l); if (l.length > 0) setSelectedTopic(l[0].id); }).catch(() => {});
+    
+    fetch(`${API_BASE}/api/topics`).then(r => { if (!r.ok) throw new Error('fail'); return r.json(); }).then(d => { 
+      const l = d?.topics || []; 
+      setTopics(l); 
+      if (l.length > 0) setSelectedTopic(l[0].id); 
+    }).catch(() => {
+      const fb = [
+        {"id": "introducing_myself", "name": "Introducing Myself", "icon": "👋"},
+        {"id": "my_family", "name": "My Family", "icon": "👨‍👩‍👧‍👦"},
+        {"id": "traveling", "name": "Traveling", "icon": "✈️"},
+        {"id": "housework", "name": "Housework", "icon": "🏠"},
+        {"id": "shopping", "name": "Shopping", "icon": "🛒"},
+        {"id": "health", "name": "Health", "icon": "🏥"},
+        {"id": "sport", "name": "Sport", "icon": "⚽"},
+        {"id": "education", "name": "Education", "icon": "🎓"},
+        {"id": "future_career", "name": "Future Career", "icon": "💼"},
+        {"id": "inventions", "name": "Inventions", "icon": "💡"},
+        {"id": "info_tech", "name": "Information Technologies", "icon": "💻"},
+        {"id": "safety_at_work", "name": "Safety at Work", "icon": "🦺"}
+      ];
+      setTopics(fb);
+      setSelectedTopic(fb[0].id);
+    });
     const s = localStorage.getItem("pronunciation_history"); if (s) setHistory(JSON.parse(s));
     if (SpeechRecognition) {
       const rec = new SpeechRecognition(); rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US'; rec.maxAlternatives = 1;
@@ -240,11 +262,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (topics.length > 0 && !selectedTopic) return;
+
     const params = new URLSearchParams({ level: selectedLevel });
     if (selectedTopic) params.set('topic', selectedTopic);
-    fetch(`${API_BASE}/api/phrases?${params}`).then(r => r.json()).then(d => { setPhrases(d?.phrases || []); setCurrentPhraseIndex(0); setResult(null); setStep('ready'); })
+    
+    fetch(`${API_BASE}/api/phrases?${params}`).then(r => { if (!r.ok) throw new Error('fail'); return r.json(); }).then(d => { setPhrases(d?.phrases || []); setCurrentPhraseIndex(0); setResult(null); setStep('ready'); })
       .catch(() => setPhrases(["Hello, my name is Anna.", "The weather is nice today.", "Can you help me please?"]));
-  }, [selectedLevel, selectedTopic]);
+  }, [selectedLevel, selectedTopic, topics.length]);
 
   useEffect(() => { localStorage.setItem("pronunciation_history", JSON.stringify(history)); }, [history]);
 
@@ -363,7 +388,7 @@ export default function App() {
           </header>
 
           <LevelSelector levels={levels} selected={selectedLevel} onSelect={setSelectedLevel} lang={lang} />
-          {topics.length > 0 && <TopicSelector topics={topics} selected={selectedTopic} onSelect={setSelectedTopic} lang={lang} />}
+          {topics.length > 0 && activeTab === 'practice' && <TopicSelector topics={topics} selected={selectedTopic} onSelect={setSelectedTopic} lang={lang} />}
 
           {/* Tabs */}
           <div className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2">
