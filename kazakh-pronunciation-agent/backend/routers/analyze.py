@@ -2,11 +2,12 @@
 
 import json
 import asyncio
+import os
+import re
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form
 
 import httpx
-from config import OLLAMA_URL, OLLAMA_MODEL
 from services.audio import transcribe_audio
 
 router = APIRouter()
@@ -63,31 +64,56 @@ Return STRICTLY a JSON object (no markdown, no code fences) matching this exact 
 If the arrays are empty, return empty arrays []. Always return valid JSON."""
 
 
-async def analyze_with_ollama(target_text: str, spoken_text: str) -> dict:
-    """Call local Ollama (phi3) to produce a structured pronunciation analysis."""
-    prompt = f"""{SYSTEM_PROMPT}
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")  # "gemini" или "claude"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-5-5")
 
-target_text: "{target_text}"
-spoken_text: "{spoken_text}"
-"""
+
+def _parse_json(text: str) -> dict:
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    return json.loads(text)
+
+
+async def analyze_with_ollama(target_text: str, spoken_text: str) -> dict:
+    """Pronunciation analysis via external LLM API (Gemini or Claude)."""
+    user_msg = f'target_text: "{target_text}"\nspoken_text: "{spoken_text}"'
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                OLLAMA_URL,
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "format": "json",
-                    "stream": False,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Ollama returns {"response": "...", ...}
-            raw_text = data.get("response", "")
-            return json.loads(raw_text)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            if LLM_PROVIDER == "claude":
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": CLAUDE_MODEL,
+                        "max_tokens": 2000,
+                        "system": SYSTEM_PROMPT,
+                        "messages": [{"role": "user", "content": user_msg}],
+                    },
+                )
+                resp.raise_for_status()
+                return _parse_json(resp.json()["content"][0]["text"])
+            else:
+                resp = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+                    headers={"x-goog-api-key": GEMINI_API_KEY},
+                    json={
+                        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                        "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+                        "generationConfig": {"responseMimeType": "application/json"},
+                    },
+                )
+                resp.raise_for_status()
+                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                return _parse_json(text)
     except Exception as exc:
-        print(f"Ollama analysis error: {exc}")
+        print(f"LLM analysis error: {exc}")
         return None
 
 

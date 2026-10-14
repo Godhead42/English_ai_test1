@@ -33,3 +33,7 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+.env
+__pycache__/
+*.webm

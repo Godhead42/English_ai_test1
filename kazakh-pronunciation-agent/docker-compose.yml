@@ -1,23 +1,17 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: english_coach
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
 
-
   backend:
     build: ./backend
     container_name: fastapi_app
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
     env_file:
       - ./backend/.env
     depends_on:
@@ -26,21 +20,10 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: react_app
     ports:
-      - "5173:80"
-    restart: always
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin_container
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@kstu.kz
-      PGADMIN_DEFAULT_PASSWORD: admin_password
-    ports:
-      - "5050:80"
+      - "127.0.0.1:8080:80"
     depends_on:
-      - db
+      - backend
     restart: always
 
 volumes:
