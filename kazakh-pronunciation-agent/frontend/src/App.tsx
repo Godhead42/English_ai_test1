@@ -425,12 +425,8 @@ export default function App() {
               <section className="w-full flex flex-col items-center mb-6 sm:mb-8 max-w-2xl mx-auto">
                 <AudioVisualizer isRecording={isRecording} mediaStream={stream} />
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onMouseDown={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
-                  onMouseUp={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
-                  onMouseLeave={() => { if (isRecording) stopRecording(); }}
-                  onTouchStart={(e) => { e.preventDefault(); if (!isRecording && step !== 'analyzing') startRecording(); }}
-                  onTouchEnd={(e) => { e.preventDefault(); if (isRecording) stopRecording(); }}
-                  onContextMenu={(e) => e.preventDefault()} disabled={step === 'analyzing'}
+                  onClick={() => { if (isRecording) stopRecording(); else if (step !== 'analyzing') startRecording(); }}
+                  disabled={step === 'analyzing'}
                   className={`mt-4 z-20 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full shadow-2xl transition-all duration-300 disabled:opacity-30 ${isRecording ? 'bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.5)]' : 'bg-brand-500 text-slate-950 hover:bg-brand-400 hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] border border-brand-300'}`}>
                   {isRecording ? <Square className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 fill-current" /> : <Mic className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10" />}
                   {isRecording && <span className="absolute inset-0 rounded-full border border-red-500/50 animate-ping" />}
