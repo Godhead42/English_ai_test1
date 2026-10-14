@@ -2,8 +2,10 @@
 
 import json
 import asyncio
+import base64
 import os
 import re
+import subprocess
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form
 
@@ -63,6 +65,16 @@ Return STRICTLY a JSON object (no markdown, no code fences) matching this exact 
 
 If the arrays are empty, return empty arrays []. Always return valid JSON."""
 
+AUDIO_PROMPT = """You are a strict but fair English pronunciation coach for ESL students from Russia/Kazakhstan.
+You receive the student's audio recording and the target phrase they were asked to read.
+LISTEN to the actual audio: judge individual sounds (th, w/v, r/l, vowel length), word endings, stress and intonation from what you hear.
+First write down exactly what the student said — do NOT auto-correct it to the target phrase.
+Scoring guide: clear, understandable speech with a mild accent = 75-90; 95+ only for near-native speech; unrelated or unintelligible speech = below 30.
+All tips and the summary must be in Russian.
+
+""" + SYSTEM_PROMPT[SYSTEM_PROMPT.index("Return STRICTLY"):] + """
+Add one more top-level field: "spoken_text": the exact words you heard in the recording."""
+
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")  # "gemini" или "claude"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -75,6 +87,60 @@ def _parse_json(text: str) -> dict:
     text = text.strip()
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
     return json.loads(text)
+
+
+def _to_mp3(data: bytes) -> bytes:
+    result = subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-f", "mp3", "pipe:1"],
+        input=data, capture_output=True, timeout=30,
+    )
+    return result.stdout if result.returncode == 0 else b""
+
+
+async def analyze_audio_with_gemini(target_text: str, audio_bytes: bytes) -> Optional[dict]:
+    """Send the recording straight to Gemini for real pronunciation assessment."""
+    try:
+        mp3 = await asyncio.to_thread(_to_mp3, audio_bytes)
+        if not mp3:
+            return None
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+                headers={"x-goog-api-key": GEMINI_API_KEY},
+                json={
+                    "systemInstruction": {"parts": [{"text": AUDIO_PROMPT}]},
+                    "contents": [{"role": "user", "parts": [
+                        {"inlineData": {"mimeType": "audio/mp3", "data": base64.b64encode(mp3).decode()}},
+                        {"text": f'target_text: "{target_text}"'},
+                    ]}],
+                    "generationConfig": {
+                        "responseMimeType": "application/json",
+                        "thinkingConfig": {"thinkingBudget": 0},
+                    },
+                },
+            )
+            resp.raise_for_status()
+            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return _parse_json(text)
+    except Exception as exc:
+        print(f"Gemini audio analysis error: {exc}")
+        return None
+
+
+def _complete_result(result: dict, target_text: str, spoken_text: str) -> dict:
+    result["target_text"] = target_text
+    result["user_text"] = spoken_text
+    if not result.get("scores"):
+        result["scores"] = {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
+    if not result.get("word_analysis"):
+        result["word_analysis"] = {"correct": [], "incorrect": [], "missing": [], "extra": []}
+    if not result.get("phonetic_issues"):
+        result["phonetic_issues"] = []
+    if not result.get("stress_issues"):
+        result["stress_issues"] = []
+    if not result.get("summary"):
+        result["summary"] = "Анализ завершён."
+    return result
 
 
 async def analyze_with_ollama(target_text: str, spoken_text: str) -> dict:
@@ -106,7 +172,10 @@ async def analyze_with_ollama(target_text: str, spoken_text: str) -> dict:
                     json={
                         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
                         "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-                        "generationConfig": {"responseMimeType": "application/json"},
+                        "generationConfig": {
+                            "responseMimeType": "application/json",
+                            "thinkingConfig": {"thinkingBudget": 0},
+                        },
                     },
                 )
                 resp.raise_for_status()
@@ -129,17 +198,28 @@ async def analyze_pronunciation(
     if not target_text.strip():
         target_text = user_text.strip() or "empty"
 
-    # Step 1: Get spoken text (prefer local faster-whisper transcription from audio)
-    spoken_text = user_text.strip()
-
+    # Read audio once so the Gemini and Whisper paths use the same bytes.
+    audio_bytes = b""
     if audio_file:
         try:
-            file_bytes = await audio_file.read()
-            # Protect against empty/corrupt audio blobs (< 100 bytes)
-            if len(file_bytes) > 100:
-                whisper_text = await transcribe_audio(file_bytes, audio_file.filename or "recording.webm")
-                if whisper_text:
-                    spoken_text = whisper_text
+            audio_bytes = await audio_file.read()
+        except Exception as e:
+            print(f"Audio read failed; using browser transcription: {e}")
+
+    # Prefer direct audio assessment with Gemini, then fall back to Whisper + text analysis.
+    if LLM_PROVIDER == "gemini" and len(audio_bytes) > 100:
+        audio_result = await analyze_audio_with_gemini(target_text, audio_bytes)
+        if audio_result:
+            spoken_text = audio_result.pop("spoken_text", "")
+            return _complete_result(audio_result, target_text, spoken_text)
+
+    # Step 1: Get spoken text (prefer local faster-whisper transcription from audio)
+    spoken_text = user_text.strip()
+    if len(audio_bytes) > 100:
+        try:
+            whisper_text = await transcribe_audio(audio_bytes, audio_file.filename or "recording.webm")
+            if whisper_text:
+                spoken_text = whisper_text
         except Exception as e:
             print(f"faster-whisper fallback triggered due to error: {e}")
             # spoken_text remains equal to user_text from browser STT
@@ -166,21 +246,7 @@ async def analyze_pronunciation(
     llm_result = await analyze_with_ollama(target_text, spoken_text)
 
     if llm_result:
-        # Attach original texts to response
-        llm_result["target_text"] = target_text
-        llm_result["user_text"] = spoken_text
-        # Ensure all required fields exist and are not None
-        if not llm_result.get("scores"):
-            llm_result["scores"] = {"overall": 0, "accuracy": 0, "fluency": 0, "completeness": 0, "intonation": 0, "stress": 0}
-        if not llm_result.get("word_analysis"):
-            llm_result["word_analysis"] = {"correct": [], "incorrect": [], "missing": [], "extra": []}
-        if not llm_result.get("phonetic_issues"):
-            llm_result["phonetic_issues"] = []
-        if not llm_result.get("stress_issues"):
-            llm_result["stress_issues"] = []
-        if not llm_result.get("summary"):
-            llm_result["summary"] = "Анализ завершён."
-        return llm_result
+        return _complete_result(llm_result, target_text, spoken_text)
 
     # Fallback if Ollama fails — basic word comparison
     target_words = target_text.lower().split()
